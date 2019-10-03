@@ -15,7 +15,8 @@ Administration's (NOAA) and is accessible at [this url](https://d396qusza40orc.c
   
 We will begin by taking a look at the data:
 ```{r cache=TRUE}
-# Downloading file (47Mb, might take a while depending on the connection and speeds):
+# Downloading file (47Mb, might take a while depending on the connection and speeds)
+# note that this step is cached and will be executed much faster if repeated:
 myurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 if (!file.exists("Storm_Data.csv.bz2")){
         download.file(myurl, destfile = "Storm_Data.csv.bz2")
@@ -36,7 +37,10 @@ str(na_check)
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
-In the "missing" camp, we have 
+Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. These variables don't seem to be relevant to the questions at hands.
+
+
+## Data Analysis
 
 ```{r}
 library(dplyr)
@@ -50,11 +54,10 @@ df_by_event <- StormData %>%
 df_fatalities <- head(df_by_event[order(df_by_event$fatalities,decreasing = T),],20)
 df_injuries <- head(df_by_event[order(df_by_event$injuries,decreasing = T),],20)
 df_cumul_health <- head(df_by_event[order(df_by_event$total.inj.fat,decreasing = T),],20)
+df_cumul_health <- transform(df_cumul_health, EVTYPE = tolower(as.character(EVTYPE)))
 plotgrp <- melt(df_cumul_health[,-4], id.vars = 'EVTYPE')
-levels(plotgrp$EVTYPE) <-  tolower(levels(plotgrp$EVTYPE))
-plotgrp$EVTYPE <- factor(plotgrp$EVTYPE, 
-                         levels = unique(as.character(plotgrp$EVTYPE)))
-plotgrp$EVTYPE
+plotgrp <- transform(plotgrp, EVTYPE = factor(EVTYPE, levels=unique(EVTYPE)))
+
 g1 <- ggplot(plotgrp, aes(x=EVTYPE, y = log(value,2), fill = variable))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         theme(axis.text.x = element_text(angle = 90, 
@@ -66,8 +69,10 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
                   angle = 90)+
         ylab("Log 2 scale of events")+
         xlab("Event")+
-        labs(title = "Top 20 events in decreasing order of total injuries + fatalities",
-             subtitle = "Scale is Logarithmic, absolute values are displayed on the bars")
+        labs(title = paste0("Top 20 events in decreasing order of cumulative",
+                            " injuries & fatalities;\n Sum of reported events",
+                            " in years 1950 to 2011"),
+             subtitle = "Warning: Scale is Logarithmic but absolute values are displayed on the bars")
         
 ```
 
