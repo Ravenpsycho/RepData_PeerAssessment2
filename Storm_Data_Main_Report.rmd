@@ -1,0 +1,73 @@
+---
+title: "Storms"
+subtitle: "A NOAA database analysis for Health and Economic consequences"
+author: "Mathieu C."
+date: "2 octobre 2019"
+output: html_document
+---
+##Synopsis
+The file "Storm Data" comes from the U.S. National Oceanic and Atmospheric  
+Administration's (NOAA) and is accessible at [this url](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on oct. 2nd 2019.  
+
+
+## Data Processing
+
+  
+We will begin by taking a look at the data:
+```{r cache=TRUE}
+# Downloading file (47Mb, might take a while depending on the connection and speeds):
+myurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if (!file.exists("Storm_Data.csv.bz2")){
+        download.file(myurl, destfile = "Storm_Data.csv.bz2")
+}
+# Reading in the dataframe, again, might take a while.
+if (!exists("StormData")){
+        StormData <- read.csv("Storm_Data.csv.bz2")
+}
+str(StormData)
+```
+From the above call to `str()` function, the database seems pretty organized.  
+Let's check for missing values:
+```{r}
+na_check <- lapply(StormData, is.na)
+na_check <- lapply(na_check, sum)
+str(na_check)
+```
+We can see that the database is an "all or nothing" type: either a variable  
+has (almost) all it's values filled in, or almost all the data is missing.  
+  
+In the "missing" camp, we have 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+df_by_event <- StormData %>%
+        group_by(EVTYPE) %>%
+        summarize(fatalities = sum(FATALITIES, na.rm = T),
+                  injuries = sum(INJURIES, na.rm = T),
+                  total.inj.fat = fatalities + injuries)
+df_fatalities <- head(df_by_event[order(df_by_event$fatalities,decreasing = T),],20)
+df_injuries <- head(df_by_event[order(df_by_event$injuries,decreasing = T),],20)
+df_cumul_health <- head(df_by_event[order(df_by_event$total.inj.fat,decreasing = T),],20)
+plotgrp <- melt(df_cumul_health[,-4], id.vars = 'EVTYPE')
+levels(plotgrp$EVTYPE) <-  tolower(levels(plotgrp$EVTYPE))
+plotgrp$EVTYPE <- factor(plotgrp$EVTYPE, 
+                         levels = unique(as.character(plotgrp$EVTYPE)))
+plotgrp$EVTYPE
+g1 <- ggplot(plotgrp, aes(x=EVTYPE, y = log(value,2), fill = variable))
+g1 + geom_bar(stat = "identity", position = "dodge") +
+        theme(axis.text.x = element_text(angle = 90, 
+                                         vjust = 0.25,
+                                         hjust = 0.95)) +
+        geom_text(aes(label=value), 
+                  position=position_dodge(width=0.9), 
+                  hjust = 1, 
+                  angle = 90)+
+        ylab("Log 2 scale of events")+
+        xlab("Event")+
+        labs(title = "Top 20 events in decreasing order of total injuries + fatalities",
+             subtitle = "Scale is Logarithmic, absolute values are displayed on the bars")
+        
+```
+
