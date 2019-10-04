@@ -12,7 +12,7 @@ Administration's (NOAA) and is accessible at [this url](https://d396qusza40orc.c
 
 ## Data Processing
 
-# Data Loading  
+### Data Loading  
 We will begin by taking a look at the data:
 ```{r cache=TRUE}
 # Downloading file (47Mb, might take a while depending on the connection and speeds)
@@ -22,12 +22,10 @@ if (!file.exists("Storm_Data.csv.bz2")){
         download.file(myurl, destfile = "Storm_Data.csv.bz2")
 }
 # Reading in the dataframe, again, might take a while.
-if (!exists("StormData")){
-        StormData <- read.csv("Storm_Data.csv.bz2")
-}
+StormData <- read.csv("Storm_Data.csv.bz2")
 str(StormData)
 ```
-# Check for NA's
+### Check for NA's
   
 From the above call to `str()` function, the database seems pretty organized.  
 Let's check for missing values:
@@ -39,9 +37,9 @@ sort(unlist(na_check), decreasing = T)
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
-Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard.
-
-## Data Analysis
+Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard.  
+  
+### Data modifications
 
 This will require some packages, let's load them:
 ```{r}
@@ -49,39 +47,85 @@ library(dplyr)
 library(ggplot2)
 library(reshape2)
 ```
+
+After some exploration, we can notice something about `EVTYPE`. There are  
+duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times:
+
+```{r}
+wind_logical <- grepl("^T.*ST.*M WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
+names_tstm <- unique(as.character(StormData[wind_logical, "EVTYPE"]))
+print(names_tstm)
+```
+
+This one is a problem because it appears pretty high in the list of harmful  
+and costly events. I will now modify them to gather them under a new name.
+
+```{r}
+StormData_mod <- StormData
+StormData_mod[wind_logical,]$EVTYPE <- names_tstm[1]
+level_nb <- which(levels(StormData$EVTYPE) == names_tstm[1])
+levels(StormData_mod$EVTYPE)[level_nb] <- "TSTM WIND COMBINED"
+unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
+```
+Much better. But there's also a problem with `HEAT`, we'll proceed the very  
+same way, further altering `StormData_mod`:
+```{r}
+heat_logical <- grepl("([/]+.*HEAT.*|.*HEAT.*[/]+)", as.character(StormData_mod$EVTYPE), ignore.case = T)
+names_heat <- unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
+print(names_heat)
+```
+
+
+## Data Analysis
+
+
   
 Now we have the tools to create a new dataframe, with data grouped by `EVTYPE`
 (event type) and we'll take a look at the highest means of fatalities and injuries.
 ```{r}
-df_by_event <- StormData %>%
+df_by_event <- StormData_mod %>%
         group_by(EVTYPE) %>%
-        summarize(fatalities = sum(FATALITIES, na.rm = T),
-                  injuries = sum(INJURIES, na.rm = T),
-                  total.inj.fat = fatalities + injuries,
-                  occurences = n())
-head(df_by_event[order(df_by_event$total.inj.fat, decreasing = T),],10)
-head(df_by_event[order(df_by_event$occurences, decreasing = T),],10)
+        summarize(mean.fatalities = mean(FATALITIES, na.rm = T),
+                  mean.injuries = mean(INJURIES, na.rm = T),
+                  total.means = mean.fatalities + mean.injuries,
+                  occurences = n()) %>%
+        arrange(desc(total.means))
+head(df_by_event, 10)
+```
+In our question we want to know how harmful an event is to population.  
+My first thought was to sort the events by their total means (injuries  
+and fatalities) combined as in the top 10 above.  
+  
+However, we first have to make sure that these events occur regularly to avoid  
+putting too much weight into a deadly, harmful but also very unlikely event  
+  
+Let's see what the top mor frequent events a.k.a. `occurences` looks like:
+```{r}
+head(df_by_event[order(df_by_event$occurences, decreasing = T),], 10)
+```
+This is interesting. We can see that some newcomers like `HAIL` or `HIGH WIND`  
+occur lots of times and they **are** harmful, not top 10 harmful but still.  
+  
+Let's try creating an `index` variable. It will be the product of `occurences`  
+by `total.means`. Why?  
+  
+Because this way, if an event is occuring a very low amount of time but has  
+a very harmful outcome, it will be on par with a less harmful event that  
+happens much more frequently. We will log(10) this index to avoid working  
+with huge numbers.  
+  
+Let's do this and have a look:
+```{r}
+df_by_event <- transform(df_by_event, 
+                         index = log((occurences * total.means), 10))
+head(df_by_event[order(desc(df_by_event$index)),], 10)
 ```
 
 
 ```{r}
-df_fatalities <- head(df_by_event[order(df_by_event$fatalities,decreasing = T),],20)
-df_injuries <- head(df_by_event[order(df_by_event$injuries,decreasing = T),],20)
-df_cumul_health <- head(df_by_event[order(df_by_event$total.inj.fat,decreasing = T),],20)
-df_cumul_health <- transform(df_cumul_health, EVTYPE = tolower(as.character(EVTYPE)))
-plotgrp <- melt(df_cumul_health[,-4], id.vars = 'EVTYPE')
-plotgrp <- transform(plotgrp, EVTYPE = factor(EVTYPE, levels=unique(EVTYPE)))
-
-g1 <- ggplot(plotgrp, aes(x=EVTYPE, y = log(value,2), fill = variable))
-g1 + geom_bar(stat = "identity", position = "dodge") +
-        theme(axis.text.x = element_text(angle = 90, 
-                                         vjust = 0.25,
-                                         hjust = 0.95)) +
-        geom_text(aes(label=value), 
-                  position=position_dodge(width=0.9), 
-                  hjust = 1, 
-                  angle = 90)+
-        ylab("Log 2 scale of events")+
+g1 <- ggplot(df_by_event, aes(x=EVTYPE, y = index))
+g1 + geom_bar(stat = "identity") +
+        ylab("Health issues index")+
         xlab("Event")+
         labs(title = paste0("Top 20 events in decreasing order of cumulative",
                             " injuries & fatalities;\n Sum of reported events",
