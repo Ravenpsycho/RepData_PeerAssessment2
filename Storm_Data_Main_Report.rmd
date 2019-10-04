@@ -12,7 +12,7 @@ Administration's (NOAA) and is accessible at [this url](https://d396qusza40orc.c
 
 ## Data Processing
 
-  
+# Data Loading  
 We will begin by taking a look at the data:
 ```{r cache=TRUE}
 # Downloading file (47Mb, might take a while depending on the connection and speeds)
@@ -27,30 +27,44 @@ if (!exists("StormData")){
 }
 str(StormData)
 ```
+# Check for NA's
+  
 From the above call to `str()` function, the database seems pretty organized.  
 Let's check for missing values:
 ```{r}
 na_check <- lapply(StormData, is.na)
 na_check <- lapply(na_check, sum)
-str(na_check)
+sort(unlist(na_check), decreasing = T)
 ```
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
-Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. These variables don't seem to be relevant to the questions at hands.
-
+Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard
 
 ## Data Analysis
 
+This will require some packages, let's load them:
 ```{r}
 library(dplyr)
 library(ggplot2)
 library(reshape2)
+```
+  
+Now we have the tools to create a new dataframe, with data grouped by `EVTYPE`
+(event type) and we'll take a look at the highest means of fatalities and injuries.
+```{r}
 df_by_event <- StormData %>%
         group_by(EVTYPE) %>%
         summarize(fatalities = sum(FATALITIES, na.rm = T),
                   injuries = sum(INJURIES, na.rm = T),
-                  total.inj.fat = fatalities + injuries)
+                  total.inj.fat = fatalities + injuries,
+                  occurences = n())
+head(df_by_event[order(df_by_event$total.inj.fat, decreasing = T),],10)
+head(df_by_event[order(df_by_event$occurences, decreasing = T),],10)
+```
+
+
+```{r}
 df_fatalities <- head(df_by_event[order(df_by_event$fatalities,decreasing = T),],20)
 df_injuries <- head(df_by_event[order(df_by_event$injuries,decreasing = T),],20)
 df_cumul_health <- head(df_by_event[order(df_by_event$total.inj.fat,decreasing = T),],20)
