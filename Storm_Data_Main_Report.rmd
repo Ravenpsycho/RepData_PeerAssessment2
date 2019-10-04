@@ -63,16 +63,21 @@ and costly events. I will now modify them to gather them under a new name.
 ```{r}
 StormData_mod <- StormData
 StormData_mod[wind_logical,]$EVTYPE <- names_tstm[1]
-level_nb <- which(levels(StormData$EVTYPE) == names_tstm[1])
+level_nb <- which(levels(StormData_mod$EVTYPE) == names_tstm[1])
 levels(StormData_mod$EVTYPE)[level_nb] <- "TSTM WIND COMBINED"
 unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
 ```
 Much better. But there's also a problem with `HEAT`, we'll proceed the very  
 same way, further altering `StormData_mod`:
 ```{r}
-heat_logical <- grepl("([/]+.*HEAT.*|.*HEAT.*[/]+)", as.character(StormData_mod$EVTYPE), ignore.case = T)
-names_heat <- unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
+multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE), ignore.case = T)
+heat_logical <- grepl(".*HEAT.*", as.character(StormData_mod$EVTYPE), ignore.case = T)
+names_heat <- unique(as.character(StormData_mod[!multi_logical & heat_logical, "EVTYPE"]))
 print(names_heat)
+```
+
+```{r}
+head(StormData_mod[StormData_mod$EVTYPE %in% names_heat,])
 ```
 
 
