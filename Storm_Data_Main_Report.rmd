@@ -39,7 +39,7 @@ sort(unlist(na_check), decreasing = T)
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
-Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard
+Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard.
 
 ## Data Analysis
 
