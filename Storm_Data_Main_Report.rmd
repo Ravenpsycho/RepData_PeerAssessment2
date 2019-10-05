@@ -70,14 +70,20 @@ unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
 Much better. But there's also a problem with `HEAT`, we'll proceed the very  
 same way, further altering `StormData_mod`:
 ```{r}
-multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE), ignore.case = T)
-heat_logical <- grepl(".*HEAT.*", as.character(StormData_mod$EVTYPE), ignore.case = T)
-names_heat <- unique(as.character(StormData_mod[!multi_logical & heat_logical, "EVTYPE"]))
+multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE),
+                       ignore.case = T)
+heat_logical <- grepl(".*HEAT.*", as.character(StormData_mod$EVTYPE),
+                      ignore.case = T)
+heat_single <- !multi_logical & heat_logical
+names_heat <- unique(as.character(StormData_mod[heat_single, "EVTYPE"]))
 print(names_heat)
 ```
 
 ```{r}
-head(StormData_mod[StormData_mod$EVTYPE %in% names_heat,])
+StormData_mod$EVTYPE[heat_single] <- names_heat[1]
+level_nb <- which(levels(StormData_mod$EVTYPE) == names_heat[1])
+levels(StormData_mod$EVTYPE)[level_nb] <- "HEAT COMBINED"
+unique(as.character(StormData_mod[heat_single, "EVTYPE"]))
 ```
 
 
@@ -128,14 +134,22 @@ head(df_by_event[order(desc(df_by_event$index)),], 10)
 
 
 ```{r}
-g1 <- ggplot(df_by_event, aes(x=EVTYPE, y = index))
-g1 + geom_bar(stat = "identity") +
+plotpop <- head(df_by_event[order(desc(df_by_event$index)),], 20)
+plotpop$EVTYPE <- factor(plotpop$EVTYPE, levels = as.character(plotpop$EVTYPE))
+
+prettycolors <- colorRampPalette(c("darkred", "gold3"))
+g1 <- ggplot(plotpop[c(1:6)],
+             aes(x=EVTYPE, y = index, fill = EVTYPE))
+g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
         xlab("Event")+
-        labs(title = paste0("Top 20 events in decreasing order of cumulative",
-                            " injuries & fatalities;\n Sum of reported events",
-                            " in years 1950 to 2011"),
-             subtitle = "Warning: Scale is Logarithmic but absolute values are displayed on the bars")
+        theme(legend.position = "none")+
+        scale_fill_manual(values = prettycolors(20))+
+        theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
+        labs(title = paste0("Top 20 events in decreasing order of Health issues",
+                            " index (HII).\n HII = mean of injuries + mean ",
+                            " of fatalities * total occurences\nData for ",
+                            "years 1950 to 2011"))
         
 ```
 
