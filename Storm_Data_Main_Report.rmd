@@ -137,19 +137,22 @@ head(df_by_event[order(desc(df_by_event$index)),], 10)
 plotpop <- head(df_by_event[order(desc(df_by_event$index)),], 20)
 plotpop$EVTYPE <- factor(plotpop$EVTYPE, levels = as.character(plotpop$EVTYPE))
 
-prettycolors <- colorRampPalette(c("darkred", "gold3"))
+warncolors <- colorRampPalette(c("red", "gold3"))
 g1 <- ggplot(plotpop[c(1:6)],
              aes(x=EVTYPE, y = index, fill = EVTYPE))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
         xlab("Event")+
         theme(legend.position = "none")+
-        scale_fill_manual(values = prettycolors(20))+
+        scale_fill_manual(values = warncolors(20))+
         theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Health issues",
                             " index (HII).\n HII = mean of injuries + mean ",
                             " of fatalities * total occurences\nData for ",
                             "years 1950 to 2011"))
         
+```
+```{r}
+cost_by_event <- StormData_mod %>% group_by()
 ```
 
