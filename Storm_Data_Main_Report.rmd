@@ -54,7 +54,7 @@ After some exploration, we can notice something about `EVTYPE`. There are
 duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times:
 
 ```{r}
-wind_logical <- grepl("^T.*ST.*M WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
+wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
 names_tstm <- unique(as.character(StormData[wind_logical, "EVTYPE"]))
 print(names_tstm)
 ```
@@ -161,7 +161,7 @@ g1 <- ggplot(plotpop[c(1:6)],
              aes(x=EVTYPE, y = index, fill = EVTYPE))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
-        xlab("Event")+
+        xlab(element_blank())+
         theme(legend.position = "none")+
         scale_fill_manual(values = prettycolors(20))+
         theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
@@ -196,15 +196,15 @@ head(cost_by_event, 20)
 plotpop2 <- head(cost_by_event[order(desc(cost_by_event$index)),], 20)
 plotpop2$EVTYPE <- factor(plotpop2$EVTYPE, levels = as.character(plotpop2$EVTYPE))
 
-prettycolors <- colorRampPalette(c("darkgreen", "springgreen"))
+prettycolors2 <- colorRampPalette(c("darkgreen", "springgreen"))
 g2 <- ggplot(plotpop2[c(1:6)],
              aes(x=EVTYPE, y = index, fill = EVTYPE))
 g2 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Cost issues index")+
-        xlab("Event")+
+        xlab(element_blank())+
         theme(legend.position = "none")+
-        scale_fill_manual(values = prettycolors(20))+
-        theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
+        scale_fill_manual(values = prettycolors2(20))+
+        theme(axis.text.x = element_text(angle = 65, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Cost issues",
                             " index (CII).\n CII = mean of propriety damage +",
                             " mean of crop damage ",
