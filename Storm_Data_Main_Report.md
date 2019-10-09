@@ -9,6 +9,8 @@ output:
 ---
 
 ## Synopsis
+
+>>>>>>> 9ef327f66bfca1b4776378e79fe7079db20f2db8
 The file "Storm Data" comes from the U.S. National Oceanic and Atmospheric  
 Administration's (NOAA) and was accessible at [this url](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on oct. 2nd 2019.  
   
