@@ -184,6 +184,7 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
                             "years 1950 to 2011"))
         
 ```
+  
 Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
 holding numbers for *property damage* and *crop damage*, respectively, they  
 first have to be ajusted with their exponent `EXP` counteparts:

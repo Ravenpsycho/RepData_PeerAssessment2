@@ -370,11 +370,13 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
 ```
 
 ![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+  
 Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
 holding numbers for *property damage* and *crop damage*, respectively, they  
 first have to be ajusted with their exponent `EXP` counteparts:
 
 ```r
+## Modifying CROPDMGEXP
 StormData_mod$CROPDMGEXP <- as.character(StormData_mod$CROPDMGEXP)
 StormData_mod$CROPDMGEXP <- gsub(
         "[0-9]", "10", StormData_mod$CROPDMGEXP)
@@ -390,16 +392,8 @@ StormData_mod$CROPDMGEXP <- gsub(
         "[Bb]", "1000000000", StormData_mod$CROPDMGEXP)
 StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
 
+##Same for PROPDMGEXP
 StormData_mod$PROPDMGEXP <- as.character(StormData_mod$PROPDMGEXP)
-unique(StormData_mod$PROPDMGEXP)
-```
-
-```
-##  [1] "K" "M" ""  "B" "m" "+" "0" "5" "6" "?" "4" "2" "3" "h" "7" "H" "-"
-## [18] "1" "8"
-```
-
-```r
 StormData_mod$PROPDMGEXP <- gsub(
         "[0-9]", "10", StormData_mod$PROPDMGEXP)
 StormData_mod$PROPDMGEXP <- gsub(
