@@ -7,8 +7,13 @@ output: html_document
 ---
 ##Synopsis
 The file "Storm Data" comes from the U.S. National Oceanic and Atmospheric  
-Administration's (NOAA) and is accessible at [this url](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on oct. 2nd 2019.  
-
+Administration's (NOAA) and was accessible at [this url](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on oct. 2nd 2019.  
+  
+The goal of the assessment is to produce a report that points at the most  
+harmful and most costly meteorological events across the US for the years we  
+have access to (1950 - 2011).  
+  
+More details can be found in the README.md file at [this GitHub url](https://github.com/Ravenpsycho/RepData_PeerAssessment2)
 
 ## Data Processing
 
@@ -22,9 +27,12 @@ if (!file.exists("Storm_Data.csv.bz2")){
         download.file(myurl, destfile = "Storm_Data.csv.bz2")
 }
 # Reading in the dataframe, again, might take a while.
-StormData <- read.csv("Storm_Data.csv.bz2")
+if (!exists("StormData")){
+        StormData <- read.csv("Storm_Data.csv.bz2")
+}
 str(StormData)
 ```
+  
 ### Check for NA's
   
 From the above call to `str()` function, the database seems pretty organized.  
@@ -34,6 +42,7 @@ na_check <- lapply(StormData, is.na)
 na_check <- lapply(na_check, sum)
 sort(unlist(na_check), decreasing = T)
 ```
+  
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
@@ -51,7 +60,8 @@ library(reshape2)
 ```
 
 After some exploration, we can notice something about `EVTYPE`. There are  
-duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times:
+duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times.  
+This is a problem because events will need to be grouped:
 
 ```{r}
 wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
@@ -59,8 +69,9 @@ names_tstm <- unique(as.character(StormData[wind_logical, "EVTYPE"]))
 print(names_tstm)
 ```
 
-This one is a problem because it appears pretty high in the list of harmful  
-and costly events. I will now modify them to gather them under a new name.
+This is also a problem because it appears pretty high in the list of harmful  
+and costly events. I will now modify them to gather all these events under a  
+new name, `TSTM WIND COMBINED`.
 
 ```{r}
 StormData_mod <- StormData
@@ -69,25 +80,23 @@ level_nb <- which(levels(StormData_mod$EVTYPE) == names_tstm[1])
 levels(StormData_mod$EVTYPE)[level_nb] <- "TSTM WIND COMBINED"
 unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
 ```
+  
 Much better. But there's also a problem with `HEAT`, we'll proceed the very  
 same way, further altering `StormData_mod`:
 ```{r}
-#multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE),
-#                       ignore.case = T)
-heat_logical <- grepl("(?!.*DROUGHT).*HEAT.*", 
+heat_logical <- grepl("((?!.*DROUGHT/?) *HEAT.*|.*HEAT *(?!.*DROUGHT/?))", 
                       as.character(StormData_mod$EVTYPE),
                       perl = TRUE,
                       ignore.case = T)
-        #heat_single <- !multi_logical & heat_logical
 names_heat <- unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
 print(names_heat)
 ```
 
 ```{r}
-StormData_mod$EVTYPE[heat_single] <- names_heat[1]
+StormData_mod$EVTYPE[heat_logical] <- names_heat[1]
 level_nb <- which(levels(StormData_mod$EVTYPE) == names_heat[1])
 levels(StormData_mod$EVTYPE)[level_nb] <- "HEAT COMBINED"
-unique(as.character(StormData_mod[heat_single, "EVTYPE"]))
+unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
 ```
 Lastly, we will do the same with `FLOODS`:
 
@@ -106,21 +115,20 @@ unique(as.character(StormData_mod[flood_logical, "EVTYPE"]))
 
 
 ## Data Analysis
-
-
   
 Now we have the tools to create a new dataframe, with data grouped by `EVTYPE`
 (event type) and we'll take a look at the highest means of fatalities and injuries.
 ```{r}
-df_by_event <- StormData_mod %>%
+health_by_event <- StormData_mod %>%
         group_by(EVTYPE) %>%
         summarize(mean.fatalities = mean(FATALITIES, na.rm = T),
                   mean.injuries = mean(INJURIES, na.rm = T),
                   total.means = mean.fatalities + mean.injuries,
                   occurences = n()) %>%
         arrange(desc(total.means))
-head(df_by_event, 10)
+head(health_by_event, 10)
 ```
+  
 In our question we want to know how harmful an event is to population.  
 My first thought was to sort the events by their total means (injuries  
 and fatalities) combined as in the top 10 above.  
@@ -128,15 +136,18 @@ and fatalities) combined as in the top 10 above.
 However, we first have to make sure that these events occur regularly to avoid  
 putting too much weight into a deadly, harmful but also very unlikely event  
   
-Let's see what the top mor frequent events a.k.a. `occurences` looks like:
+Let's see what the top most frequent events a.k.a. `occurences` looks like:
 ```{r}
-head(df_by_event[order(df_by_event$occurences, decreasing = T),], 10)
+head(health_by_event[order(health_by_event$occurences, decreasing = T),], 10)
 ```
-This is interesting. We can see that some newcomers like `HAIL` or `HIGH WIND`  
-occur lots of times and they **are** harmful, not top 10 harmful but still.  
+This is interesting. We can see that some newcomers like `HAIL` or  
+`TSTM WIND COMBINED` occur lots of times and they **are** harmful, not top  
+10 harmful but still.  
   
 Let's try creating an `index` variable. It will be the product of `occurences`  
-by `total.means`. Why?  
+by `total.means`.  
+
+*Why?*  
   
 Because this way, if an event is occuring a very low amount of time but has  
 a very harmful outcome, it will be on par with a less harmful event that  
@@ -145,14 +156,14 @@ with huge numbers.
   
 Let's do this and have a look:
 ```{r}
-df_by_event <- transform(df_by_event, 
+health_by_event <- transform(health_by_event, 
                          index = log((occurences * total.means), 10))
-head(df_by_event[order(desc(df_by_event$index)),], 10)
+head(health_by_event[order(desc(health_by_event$index)),], 10)
 ```
 
 
 ```{r}
-plotpop <- head(df_by_event[order(desc(df_by_event$index)),], 20)
+plotpop <- head(health_by_event[order(desc(health_by_event$index)),], 20)
 plotpop$EVTYPE <- factor(plotpop$EVTYPE, levels = as.character(plotpop$EVTYPE))
 
 warncolors <- colorRampPalette(c("red", "gold3"))
@@ -170,7 +181,8 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
                             "years 1950 to 2011"))
         
 ```
-Let's do the same with cost:
+Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
+holding numbers for *property damage* and *crop damage*, respectively:
 ```{r}
 cost_by_event <- StormData_mod %>%
         group_by(EVTYPE) %>%
@@ -199,15 +211,24 @@ prettycolors2 <- colorRampPalette(c("darkgreen", "springgreen"))
 g2 <- ggplot(plotpop2[c(1:6)],
              aes(x=EVTYPE, y = index, fill = EVTYPE))
 g2 + geom_bar(stat = "identity", position = "dodge") +
-        ylab("Cost issues index")+
+        ylab("Cost Index")+
         xlab(element_blank())+
         theme(legend.position = "none")+
         scale_fill_manual(values = prettycolors2(20))+
         theme(axis.text.x = element_text(angle = 65, hjust = 0.95)) +
-        labs(title = paste0("Top 20 events in decreasing order of Cost issues",
-                            " index (CII).\n CII = mean of propriety damage +",
+        labs(title = paste0("Top 20 events in decreasing order of Cost",
+                            " Index (CI).\n CI = mean of propriety damage +",
                             " mean of crop damage ",
                             "* total occurences\nData for ",
                             "years 1950 to 2011"))
         
 ```
+  
+I will rest my case here. Further steps should be taken to be able to consider  
+this work for anything else than a simple assessment in the JH Datascience  
+course:  
+  
+* In depth cleaning of the `EVTYPE` variable to ensure the best merge of duplicates.
+* Regional repartition to further affinate the specific risk potential.
+* Ajusting the index, especially for health, to reflect the true impact on  
+a community
