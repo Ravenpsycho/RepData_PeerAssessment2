@@ -8,7 +8,7 @@ output:
     keep_md: true
 ---
 
-##Synopsis
+## Synopsis
 The file "Storm Data" comes from the U.S. National Oceanic and Atmospheric  
 Administration's (NOAA) and was accessible at [this url](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on oct. 2nd 2019.  
   
