@@ -371,13 +371,63 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
 
 ![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
-holding numbers for *property damage* and *crop damage*, respectively:
+holding numbers for *property damage* and *crop damage*, respectively, they  
+first have to be ajusted with their exponent `EXP` counteparts:
+
+```r
+StormData_mod$CROPDMGEXP <- as.character(StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "[0-9]", "10", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "^$", "0", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "^[?]$", "0", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "[kK]", "1000", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "[mM]", "1000000", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- gsub(
+        "[Bb]", "1000000000", StormData_mod$CROPDMGEXP)
+StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
+
+StormData_mod$PROPDMGEXP <- as.character(StormData_mod$PROPDMGEXP)
+unique(StormData_mod$PROPDMGEXP)
+```
+
+```
+##  [1] "K" "M" ""  "B" "m" "+" "0" "5" "6" "?" "4" "2" "3" "h" "7" "H" "-"
+## [18] "1" "8"
+```
+
+```r
+StormData_mod$PROPDMGEXP <- gsub(
+        "[0-9]", "10", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "^$", "0", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "[+]", "1", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "^[?-]$", "0", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "[hH]", "100", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "[kK]", "1000", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "[mM]", "1000000", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- gsub(
+        "[Bb]", "1000000000", StormData_mod$PROPDMGEXP)
+StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
+```
+
+
+
+
 
 ```r
 cost_by_event <- StormData_mod %>%
         group_by(EVTYPE) %>%
-        summarise(mean.prop = mean(PROPDMG, na.rm = T),
-                  mean.crop = mean(CROPDMG, na.rm = T),
+        summarise(mean.prop = mean(PROPDMG * PROPDMGEXP, na.rm = T),
+                  mean.crop = mean(CROPDMG * CROPDMGEXP, na.rm = T),
                   mean.combi = mean.crop + mean.prop,
                   occurences = n(),
                   index = log(mean.combi*occurences, 10)) %>%
@@ -387,14 +437,14 @@ head(cost_by_event[order(desc(cost_by_event$mean.combi)),])
 
 ```
 ## # A tibble: 6 x 6
-##   EVTYPE                 mean.prop mean.crop mean.combi occurences index
-##   <fct>                      <dbl>     <dbl>      <dbl>      <int> <dbl>
-## 1 TROPICAL STORM GORDON        500       500       1000          1  3   
-## 2 COASTAL EROSION              766         0        766          1  2.88
-## 3 RIVER AND STREAM FLOOD       600         0        600          2  3.08
-## 4 HEAVY RAIN AND FLOOD         600         0        600          1  2.78
-## 5 Landslump                    570         0        570          1  2.76
-## 6 DUST STORM/HIGH WINDS         50       500        550          1  2.74
+##   EVTYPE                   mean.prop  mean.crop mean.combi occurences index
+##   <fct>                        <dbl>      <dbl>      <dbl>      <int> <dbl>
+## 1 TORNADOES, TSTM WIND,~ 1600000000   2500000       1.60e9          1  9.20
+## 2 HEAVY RAIN/SEVERE WEA~ 1250000000         0       1.25e9          2  9.40
+## 3 HURRICANE/TYPHOON       787566364. 29634918.      8.17e8         88 10.9 
+## 4 HURRICANE OPAL          352538444.  2111111.      3.55e8          9  9.50
+## 5 STORM SURGE             165990559.       19.2     1.66e8        261 10.6 
+## 6 WILD FIRES              156025000         0       1.56e8          4  8.80
 ```
 If we arrange the data by `mean.combi` (as seen above), we can see that the  
 most costly events have a very low occurence. Since the goal of this analysis  
@@ -408,28 +458,28 @@ head(cost_by_event, 20)
 
 ```
 ## # A tibble: 20 x 6
-##    EVTYPE               mean.prop mean.crop mean.combi occurences index
-##    <fct>                    <dbl>     <dbl>      <dbl>      <int> <dbl>
-##  1 TORNADO                  53.0     1.65        54.6       60652  6.52
-##  2 TSTM WIND COMBINED        8.23    0.602        8.83     323430  6.46
-##  3 FLOOD COMBINED           29.3     4.41        33.7       81070  6.44
-##  4 HAIL                      2.39    2.01         4.39     288661  6.10
-##  5 LIGHTNING                38.3     0.227       38.5       15754  5.78
-##  6 HIGH WIND                16.1     0.855       16.9       20212  5.53
-##  7 WINTER STORM             11.6     0.173       11.8       11433  5.13
-##  8 HEAVY SNOW                7.78    0.138        7.92      15708  5.09
-##  9 WILDFIRE                 30.6     1.58        32.2        2761  4.95
-## 10 ICE STORM                32.9     0.842       33.7        2006  4.83
-## 11 STRONG WIND              17.7     0.453       18.1        3566  4.81
-## 12 HEAVY RAIN                4.34    0.949        5.29      11723  4.79
-## 13 HIGH WINDS               36.3     1.15        37.4        1533  4.76
-## 14 TROPICAL STORM           70.2     8.55        78.7         690  4.73
-## 15 WILD/FOREST FIRE         27.0     2.88        29.9        1457  4.64
-## 16 DROUGHT                   1.65   13.6         15.3        2488  4.58
-## 17 URBAN/SML STREAM FLD      7.68    0.824        8.50       3392  4.46
-## 18 BLIZZARD                  9.31    0.0633       9.37       2719  4.41
-## 19 HURRICANE                89.2    30.7        120.          174  4.32
-## 20 STORM SURGE              74.3     0.0192      74.3         261  4.29
+##    EVTYPE                  mean.prop  mean.crop mean.combi occurences index
+##    <fct>                       <dbl>      <dbl>      <dbl>      <int> <dbl>
+##  1 FLOOD COMBINED           1990914.    88841.      2.08e6      81070 11.2 
+##  2 HURRICANE/TYPHOON      787566364. 29634918.      8.17e8         88 10.9 
+##  3 TORNADO                   938752.     6842.      9.46e5      60652 10.8 
+##  4 STORM SURGE            165990559.       19.2     1.66e8        261 10.6 
+##  5 HAIL                       54501.    10483.      6.50e4     288661 10.3 
+##  6 DROUGHT                   420461.  5615983.      6.04e6       2488 10.2 
+##  7 HURRICANE               68208730. 15758103.      8.40e7        174 10.2 
+##  8 TSTM WIND COMBINED         30035.     3585.      3.36e4     323430 10.0 
+##  9 RIVER FLOOD             29589280. 29072017.      5.87e7        173 10.0 
+## 10 ICE STORM                1966564.  2503546.      4.47e6       2006  9.95
+## 11 TROPICAL STORM          11165059.   983110.      1.21e7        690  9.92
+## 12 WINTER STORM              585017.     2357.      5.87e5      11433  9.83
+## 13 HIGH WIND                 260738.    31594.      2.92e5      20212  9.77
+## 14 WILDFIRE                 1725865.   107017.      1.83e6       2761  9.70
+## 15 STORM SURGE/TIDE        31359378.     5743.      3.14e7        148  9.67
+## 16 HURRICANE OPAL         352538444.  2111111.      3.55e8          9  9.50
+## 17 WILD/FOREST FIRE         2060281.    73299.      2.13e6       1457  9.49
+## 18 HEAVY RAIN/SEVERE WE~ 1250000000         0       1.25e9          2  9.40
+## 19 TORNADOES, TSTM WIND~ 1600000000   2500000       1.60e9          1  9.20
+## 20 HEAVY RAIN                 59221.    62561.      1.22e5      11723  9.15
 ```
 
 
@@ -453,7 +503,7 @@ g2 + geom_bar(stat = "identity", position = "dodge") +
                             "years 1950 to 2011"))
 ```
 
-![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
   
 I will rest my case here. Further steps should be taken to be able to consider  
 this work for anything else than a simple assessment in the JH Datascience  
