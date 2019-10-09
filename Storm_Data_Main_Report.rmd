@@ -37,7 +37,9 @@ sort(unlist(na_check), decreasing = T)
 We can see that the database is an "all or nothing" type: either a variable  
 has (almost) all it's values filled in, or almost all the data is missing.  
   
-Fortunately, in the "missing" camp, we have only two variables `F` and `COUNTYENDN`. Since these variables don't seem to be relevant to the questions at hands, we won't take further actions in their regard.  
+Fortunately, in the "missing" camp, we have only two variables `F` and  
+`COUNTYENDN`. Since these variables don't seem to be relevant to the questions  
+at hands, we won't take further actions in their regard.  
   
 ### Data modifications
 
@@ -52,7 +54,7 @@ After some exploration, we can notice something about `EVTYPE`. There are
 duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times:
 
 ```{r}
-wind_logical <- grepl("^T.*ST.*M WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
+wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
 names_tstm <- unique(as.character(StormData[wind_logical, "EVTYPE"]))
 print(names_tstm)
 ```
@@ -70,12 +72,14 @@ unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
 Much better. But there's also a problem with `HEAT`, we'll proceed the very  
 same way, further altering `StormData_mod`:
 ```{r}
-multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE),
-                       ignore.case = T)
-heat_logical <- grepl(".*HEAT.*", as.character(StormData_mod$EVTYPE),
+#multi_logical <- grepl(".*/.*", as.character(StormData_mod$EVTYPE),
+#                       ignore.case = T)
+heat_logical <- grepl("(?!.*DROUGHT).*HEAT.*", 
+                      as.character(StormData_mod$EVTYPE),
+                      perl = TRUE,
                       ignore.case = T)
-heat_single <- !multi_logical & heat_logical
-names_heat <- unique(as.character(StormData_mod[heat_single, "EVTYPE"]))
+        #heat_single <- !multi_logical & heat_logical
+names_heat <- unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
 print(names_heat)
 ```
 
@@ -84,6 +88,20 @@ StormData_mod$EVTYPE[heat_single] <- names_heat[1]
 level_nb <- which(levels(StormData_mod$EVTYPE) == names_heat[1])
 levels(StormData_mod$EVTYPE)[level_nb] <- "HEAT COMBINED"
 unique(as.character(StormData_mod[heat_single, "EVTYPE"]))
+```
+Lastly, we will do the same with `FLOODS`:
+
+```{r}
+flood_logical <- grepl("^ *(FLOOD */)? *(FLASH|)+ *FLOOD(S)*(ING)*$", as.character(StormData_mod$EVTYPE),
+                      ignore.case = T)
+names_flood <- unique(as.character(StormData_mod[flood_logical, "EVTYPE"]))
+print(names_flood)
+```
+```{r}
+StormData_mod$EVTYPE[flood_logical] <- names_flood[1]
+level_nb <- which(levels(StormData_mod$EVTYPE) == names_flood[1])
+levels(StormData_mod$EVTYPE)[level_nb] <- "FLOOD COMBINED"
+unique(as.character(StormData_mod[flood_logical, "EVTYPE"]))
 ```
 
 
@@ -142,7 +160,7 @@ g1 <- ggplot(plotpop[c(1:6)],
              aes(x=EVTYPE, y = index, fill = EVTYPE))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
-        xlab("Event")+
+        xlab(element_blank())+
         theme(legend.position = "none")+
         scale_fill_manual(values = warncolors(20))+
         theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
@@ -152,7 +170,44 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
                             "years 1950 to 2011"))
         
 ```
+Let's do the same with cost:
 ```{r}
-cost_by_event <- StormData_mod %>% group_by()
+cost_by_event <- StormData_mod %>%
+        group_by(EVTYPE) %>%
+        summarise(mean.prop = mean(PROPDMG, na.rm = T),
+                  mean.crop = mean(CROPDMG, na.rm = T),
+                  mean.combi = mean.crop + mean.prop,
+                  occurences = n(),
+                  index = log(mean.combi*occurences, 10)) %>%
+        arrange(desc(index))
+head(cost_by_event[order(desc(cost_by_event$mean.combi)),])
+```
+If we arrange the data by `mean.combi` (as seen above), we can see that the  
+most costly events have a very low occurence. Since the goal of this analysis  
+is to produce a report supposedly for preparation towards events, the formerly  
+used method of creating an index to weight events by `occurences` seems about  
+right.
+```{r}
+head(cost_by_event, 20)
 ```
 
+```{r}
+plotpop2 <- head(cost_by_event[order(desc(cost_by_event$index)),], 20)
+plotpop2$EVTYPE <- factor(plotpop2$EVTYPE, levels = as.character(plotpop2$EVTYPE))
+
+prettycolors2 <- colorRampPalette(c("darkgreen", "springgreen"))
+g2 <- ggplot(plotpop2[c(1:6)],
+             aes(x=EVTYPE, y = index, fill = EVTYPE))
+g2 + geom_bar(stat = "identity", position = "dodge") +
+        ylab("Cost issues index")+
+        xlab(element_blank())+
+        theme(legend.position = "none")+
+        scale_fill_manual(values = prettycolors2(20))+
+        theme(axis.text.x = element_text(angle = 65, hjust = 0.95)) +
+        labs(title = paste0("Top 20 events in decreasing order of Cost issues",
+                            " index (CII).\n CII = mean of propriety damage +",
+                            " mean of crop damage ",
+                            "* total occurences\nData for ",
+                            "years 1950 to 2011"))
+        
+```
