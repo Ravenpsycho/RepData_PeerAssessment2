@@ -60,25 +60,85 @@ This will require some packages, let's load them:
 library(dplyr)
 library(ggplot2)
 library(reshape2)
+library(pdftools)
+library(stringr)
+library(stringdist)
 ```
-
-After some exploration, we can notice something about `EVTYPE`. There are  
-duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times.  
-This is a problem because events will need to be grouped:
-
-This is also a problem because it appears pretty high in the list of harmful  
-and costly events. I will now modify them to gather all these events under a  
-new name, `TSTM WIND COMBINED`.
-
+  
+Let's first create (...)
 ```{r}
-summary(StormData[!testdate,]$EVTYPE)
 testdate <- as.POSIXlt(
                 as.character(StormData$BGN_DATE),
                 format = "%m/%d/%Y %H:%M:%S") > "1996-01-01"
 conditions <- (StormData$CROPDMG > 0 | StormData$PROPDMG > 0 |
         StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
 StormData_mod <- subset(StormData, subset = conditions)
+StormData_mod <- StormData_mod[,c("EVTYPE","INJURIES", "FATALITIES", "CROPDMG", "CROPDMGEXP",
+                              "PROPDMG", "PROPDMGEXP")]
+
 ```
+  
+After some exploration, we can notice something about `EVTYPE`. There are  
+duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times under  
+slightly different names.    
+This is a problem. Events will need to be grouped under the official  
+48 names below (found in the pdf file in code):  
+  
+```{r}
+pdf_url <- paste0("https://d396qusza40orc.cloudfront.net/",
+                  "repdata%2Fpeer2_doc%2Fpd01016005curr.pdf")
+my_pdf <- 
+        paste0(pdf_text(pdf_url)[c(2:4)])
+my_str <- unlist(strsplit(my_pdf, "\\r\\n"))
+my_str <- my_str[47:128]
+my_str_short <- str_match(string = my_str, pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
+my_str_short <- toupper(my_str_short[!is.na(my_str_short[,3]),3])
+rm(my_pdf, my_str)
+print(my_str_short)
+```
+
+After (*lots*) of trial and error, one of the main issues to match is the fact  
+that some of the terms are abbreviated, like `TSTM` and `FLD`.  
+  
+We will try to fix them before the attempt.
+
+```{r}
+testmatch_fld <- grepl("FLD", 
+                       as.character(StormData_mod$EVTYPE), 
+                       ignore.case = T)
+levels(factor(StormData_mod[testmatch_fld, "EVTYPE"]))
+
+testmatch_non <- grepl("NON-? ?\\w",
+                       as.character(StormData_mod$EVTYPE), 
+                       ignore.case = T, perl =T)
+levels(factor(StormData_mod[testmatch_non, "EVTYPE"]))
+
+testmatch_tstm <- grepl("TSTM", 
+                        as.character(StormData_mod$EVTYPE), 
+                        ignore.case = T)
+levels(factor(StormData_mod[testmatch_tstm, "EVTYPE"]))
+
+
+```
+
+
+
+```{r}
+## The matching attempt:
+matches <- amatch(toupper(StormData_mod$EVTYPE), my_str_short, method = "lcs", maxDist = 14)
+df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE, 
+                             RESULT = my_str_short[matches])
+sum(is.na(df_test_amatch$RESULT))
+amatch_10 <- which(is.na(df_test_amatch$RESULT))
+df_test_amatch[amatch_10,]
+```
+
+
+This is also a problem because it appears pretty high in the list of harmful  
+and costly events. I will now modify them to gather all these events under a  
+new name, `TSTM WIND COMBINED`.
+
+
 
 ```{r}
 wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData_mod$EVTYPE), ignore.case = T)
