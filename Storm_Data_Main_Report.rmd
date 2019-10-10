@@ -198,40 +198,22 @@ Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,
 holding numbers for *property damage* and *crop damage*, respectively, they  
 first have to be ajusted with their exponent `EXP` counteparts:
 ```{r}
+v_pattern <- c("[0-9]", "^$", "[+]", "[?-]", "[hH]", "[kK]", "[mM]", "[Bb]") 
+v_repl <- c("10", "0", "1", "0", "100", "1000", "1000000", "1000000000")
 ## Modifying CROPDMGEXP
 StormData_mod$CROPDMGEXP <- as.character(StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "[0-9]", "10", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "^$", "0", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "^[?]$", "0", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "[kK]", "1000", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "[mM]", "1000000", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- gsub(
-        "[Bb]", "1000000000", StormData_mod$CROPDMGEXP)
-StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
-
-##Same for PROPDMGEXP
 StormData_mod$PROPDMGEXP <- as.character(StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[0-9]", "10", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "^$", "0", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[+]", "1", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "^[?-]$", "0", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[hH]", "100", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[kK]", "1000", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[mM]", "1000000", StormData_mod$PROPDMGEXP)
-StormData_mod$PROPDMGEXP <- gsub(
-        "[Bb]", "1000000000", StormData_mod$PROPDMGEXP)
+
+for (i in 1:8){
+        StormData_mod$CROPDMGEXP <-
+                gsub(v_pattern[i], v_repl[i], StormData_mod$CROPDMGEXP)
+        StormData_mod$PROPDMGEXP <- 
+                gsub(v_pattern[i], v_repl[i], StormData_mod$PROPDMGEXP)
+} 
+sum(!is.numeric(as.numeric(StormData_mod$CROPDMGEXP)))
+sum(!is.numeric(as.numeric(StormData_mod$PROPDMGEXP)))
+
+StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
 StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
 ```
 
