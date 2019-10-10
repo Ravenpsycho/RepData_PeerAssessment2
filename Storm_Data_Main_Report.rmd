@@ -90,7 +90,8 @@ pdf_url <- paste0("https://d396qusza40orc.cloudfront.net/",
                   "repdata%2Fpeer2_doc%2Fpd01016005curr.pdf")
 my_pdf <- 
         paste0(pdf_text(pdf_url)[c(2:4)])
-my_str <- unlist(strsplit(my_pdf, "\\r\\n"))
+my_str <- unlist(strsplit(my_pdf, "(\\r)?\\n"))
+my_str
 my_str <- my_str[47:128]
 my_str_short <- str_match(string = my_str, pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
 my_str_short <- toupper(my_str_short[!is.na(my_str_short[,3]),3])
@@ -101,7 +102,6 @@ print(my_str_short)
 After (*lots*) of trial and error, one of the main issues to match is the fact  
 that some of the terms are abbreviated, like `TSTM` and `FLD`.  
   
-<<<<<<< HEAD
 We will try to fix them before the attempt. 
   
 While we're at it, there's a few strings that start with `NON` something.  
@@ -118,72 +118,22 @@ for (i in 1:length(patterns)){
                      as.character(StormData_mod$EVTYPE), ignore.case = T)
 }
 StormData_mod$EVTYPE <- factor(StormData_mod$EVTYPE, levels = unique(StormData_mod$EVTYPE))
-grep("STREAM FLOOD", StormData_mod$EVTYPE)
 ```
 
 
 
 ```{r}
 ## The matching attempt:
-matches <- amatch(toupper(StormData_mod$EVTYPE), my_str_short, method = "lv", maxDist = 12)
+matches <- amatch(toupper(as.character(StormData_mod$EVTYPE)), my_str_short, method = "lv", maxDist = 16)
 df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE, 
                              RESULT = my_str_short[matches])
 sum(is.na(df_test_amatch$RESULT))
-amatch_14 <- which(is.na(df_test_amatch$RESULT))
-df_test_amatch[amatch_14,]
 ```
 
 
 This is also a problem because it appears pretty high in the list of harmful  
 and costly events. I will now modify them to gather all these events under a  
 new name, `TSTM WIND COMBINED`.
-
-
-
-```{r}
-wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData_mod$EVTYPE), ignore.case = T)
-names_tstm <- unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
-print(names_tstm)
-```
-
-```{r}
-StormData_mod[wind_logical,]$EVTYPE <- names_tstm[1]
-level_nb <- which(levels(StormData_mod$EVTYPE) == names_tstm[1])
-levels(StormData_mod$EVTYPE)[level_nb] <- "TSTM WIND COMBINED"
-unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
-```
-  
-Much better. But there's also a problem with `HEAT`, we'll proceed the very  
-same way, further altering `StormData_mod`:
-```{r}
-heat_logical <- grepl("((?!.*DROUGHT/?) *HEAT.*|.*HEAT *(?!.*DROUGHT/?))", 
-                      as.character(StormData_mod$EVTYPE),
-                      perl = TRUE,
-                      ignore.case = T)
-names_heat <- unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
-print(names_heat)
-```
-
-```{r}
-StormData_mod$EVTYPE[heat_logical] <- names_heat[1]
-level_nb <- which(levels(StormData_mod$EVTYPE) == names_heat[1])
-levels(StormData_mod$EVTYPE)[level_nb] <- "HEAT COMBINED"
-unique(as.character(StormData_mod[heat_logical, "EVTYPE"]))
-```
-Lastly, we will do the same with `FLOODS`:
-
-```{r}
-flood_logical <- grepl("^ *(FLOOD */)? *(FLASH|)+ *FLOOD(S)*(ING)*$", as.character(StormData_mod$EVTYPE),
-                      ignore.case = T)
-names_flood <- unique(as.character(StormData_mod[flood_logical, "EVTYPE"]))
-print(names_flood)
-```
-```{r}
-StormData_mod$EVTYPE[flood_logical] <- names_flood[1]
-level_nb <- which(levels(StormData_mod$EVTYPE) == names_flood[1])
-levels(StormData_mod$EVTYPE)[level_nb] <- "FLOOD COMBINED"
-unique(as.character(StormData_mod[flood_logical, "EVTYPE"]))
-```
 
 
 ## Data Analysis
