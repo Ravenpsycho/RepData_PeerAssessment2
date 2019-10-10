@@ -96,7 +96,9 @@ my_str <- my_str[47:128]
 my_str_short <- str_match(string = my_str, pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
 my_str_short <- toupper(my_str_short[!is.na(my_str_short[,3]),3])
 rm(my_pdf, my_str)
+my_str_long <- unlist(strsplit(my_str_short, "[/]"))
 print(my_str_short)
+
 ```
 
 After (*lots*) of trial and error, one of the main issues to match is the fact  
@@ -109,8 +111,12 @@ While we're at it, there's a few strings that start with `NON` something.
 We'll try to catch them as well.  
 
 ```{r}
-patterns <- c("FLD", "NON-? ?\\w*", "TSTM", "URBAN/SML STREAM", "Ice jam flood [(]minor")
-replacements <-  c("FLOOD", "", "THUNDERSTORM", "", "FLOOD")
+patterns <- c("FLD", "NON-? ?\\w*", "TSTM",
+              "URBAN/SML STREAM", "Ice jam flood [(]minor",
+              "MIXED PRECIPITATION", "HYPOTHERMIA", "TORRENTIAL RAINFALL",
+              "HYPERTHERMIA", "AND LIGHTNING$", "HWY", "EXTREME")
+replacements <-  c("FLOOD", "", "THUNDERSTORM", "", "FLOOD", "RAIN",
+                   "COLD", "RAIN", "HEAT", "", "HEAVY", "")
 
 for (i in 1:length(patterns)){
         StormData_mod$EVTYPE <- 
@@ -124,10 +130,15 @@ StormData_mod$EVTYPE <- factor(StormData_mod$EVTYPE, levels = unique(StormData_m
 
 ```{r}
 ## The matching attempt:
-matches <- amatch(toupper(as.character(StormData_mod$EVTYPE)), my_str_short, method = "lv", maxDist = 16)
+matches1 <- amatch(toupper(as.character(StormData_mod$EVTYPE)), my_str_long, method = "lcs", maxDist = 8)
+matches2 <- amatch(toupper(my_str_long[matches1]), my_str_short, method = "lcs", maxDist = 8)
+
 df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE, 
-                             RESULT = my_str_short[matches])
-sum(is.na(df_test_amatch$RESULT))
+                             RESULT = my_str_long[matches1],
+                             RESULT2 = my_str_short[matches2])
+sum(is.na(df_test_amatch$RESULT2))
+amatch_7 <- which(is.na(df_test_amatch$RESULT))
+df_test_amatch[amatch_7,]
 ```
 
 
