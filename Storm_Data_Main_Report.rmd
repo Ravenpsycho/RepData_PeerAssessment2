@@ -77,7 +77,7 @@ testdate <- as.POSIXlt(
                 format = "%m/%d/%Y %H:%M:%S") > "1996-01-01"
 conditions <- (StormData$CROPDMG > 0 | StormData$PROPDMG > 0 |
         StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
-StormData_mod <- StormData[conditions,]
+StormData_mod <- subset(StormData, subset = conditions)
 ```
 
 ```{r}
