@@ -66,6 +66,7 @@ library(stringdist)
 ```
   
 Let's first create (...)
+<<<<<<< HEAD
 ```{r cache=TRUE}
 testdate <- as.POSIXlt(
                 as.character(StormData$BGN_DATE),
@@ -100,6 +101,7 @@ print(my_str_short)
 After (*lots*) of trial and error, one of the main issues to match is the fact  
 that some of the terms are abbreviated, like `TSTM` and `FLD`.  
   
+<<<<<<< HEAD
 We will try to fix them before the attempt. 
   
 While we're at it, there's a few strings that start with `NON` something.  
