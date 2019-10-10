@@ -66,18 +66,27 @@ After some exploration, we can notice something about `EVTYPE`. There are
 duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times.  
 This is a problem because events will need to be grouped:
 
-```{r}
-wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData$EVTYPE), ignore.case = T)
-names_tstm <- unique(as.character(StormData[wind_logical, "EVTYPE"]))
-print(names_tstm)
-```
-
 This is also a problem because it appears pretty high in the list of harmful  
 and costly events. I will now modify them to gather all these events under a  
 new name, `TSTM WIND COMBINED`.
 
 ```{r}
-StormData_mod <- StormData
+summary(StormData[!testdate,]$EVTYPE)
+testdate <- as.POSIXlt(
+                as.character(StormData$BGN_DATE),
+                format = "%m/%d/%Y %H:%M:%S") > "1996-01-01"
+conditions <- (StormData$CROPDMG > 0 | StormData$PROPDMG > 0 |
+        StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
+StormData_mod <- StormData[conditions,]
+```
+
+```{r}
+wind_logical <- grepl("^ *(T.*ST.*M)+ *WIND(S)*$", as.character(StormData_mod$EVTYPE), ignore.case = T)
+names_tstm <- unique(as.character(StormData_mod[wind_logical, "EVTYPE"]))
+print(names_tstm)
+```
+
+```{r}
 StormData_mod[wind_logical,]$EVTYPE <- names_tstm[1]
 level_nb <- which(levels(StormData_mod$EVTYPE) == names_tstm[1])
 levels(StormData_mod$EVTYPE)[level_nb] <- "TSTM WIND COMBINED"
@@ -181,7 +190,7 @@ g1 + geom_bar(stat = "identity", position = "dodge") +
         labs(title = paste0("Top 20 events in decreasing order of Health issues",
                             " index (HII).\n HII = mean of injuries + mean ",
                             " of fatalities * total occurences\nData for ",
-                            "years 1950 to 2011"))
+                            "years 1996 to 2011"))
         
 ```
   
@@ -266,7 +275,7 @@ g2 + geom_bar(stat = "identity", position = "dodge") +
                             " Index (CI).\n CI = mean of propriety damage +",
                             " mean of crop damage ",
                             "* total occurences\nData for ",
-                            "years 1950 to 2011"))
+                            "years 1996 to 2011"))
         
 ```
   
