@@ -1,11 +1,12 @@
 ---
-title: "Storms"
-subtitle: "A NOAA database analysis for Health and Economic consequences"
+title: "Top 20 most Harmful/Costly meteorological events in the US, years 1996-2011"
 author: "Mathieu C."
 date: "2 octobre 2019"
-output: 
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
+subtitle: A NOAA database analysis for Health and Economic consequences
 ---
 
 ## Synopsis
@@ -49,14 +50,14 @@ str(StormData)
 ##  $ EVTYPE    : Factor w/ 985 levels "   HIGH SURF ADVISORY",..: 834 834 834 834 834 834 834 834 834 834 ...
 ##  $ BGN_RANGE : num  0 0 0 0 0 0 0 0 0 0 ...
 ##  $ BGN_AZI   : Factor w/ 35 levels "","  N"," NW",..: 1 1 1 1 1 1 1 1 1 1 ...
-##  $ BGN_LOCATI: Factor w/ 54429 levels ""," Christiansburg",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ BGN_LOCATI: Factor w/ 54429 levels "","- 1 N Albion",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ END_DATE  : Factor w/ 6663 levels "","1/1/1993 0:00:00",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ END_TIME  : Factor w/ 3647 levels ""," 0900CST",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ COUNTY_END: num  0 0 0 0 0 0 0 0 0 0 ...
 ##  $ COUNTYENDN: logi  NA NA NA NA NA NA ...
 ##  $ END_RANGE : num  0 0 0 0 0 0 0 0 0 0 ...
 ##  $ END_AZI   : Factor w/ 24 levels "","E","ENE","ESE",..: 1 1 1 1 1 1 1 1 1 1 ...
-##  $ END_LOCATI: Factor w/ 34506 levels ""," CANTON"," TULIA",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ END_LOCATI: Factor w/ 34506 levels "","- .5 NNW",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ LENGTH    : num  14 2 0.1 0 0 1.5 1.5 0 3.3 2.3 ...
 ##  $ WIDTH     : num  100 150 123 100 150 177 33 33 100 100 ...
 ##  $ F         : int  3 2 2 2 2 2 2 1 3 3 ...
@@ -67,14 +68,14 @@ str(StormData)
 ##  $ PROPDMGEXP: Factor w/ 19 levels "","-","?","+",..: 17 17 17 17 17 17 17 17 17 17 ...
 ##  $ CROPDMG   : num  0 0 0 0 0 0 0 0 0 0 ...
 ##  $ CROPDMGEXP: Factor w/ 9 levels "","?","0","2",..: 1 1 1 1 1 1 1 1 1 1 ...
-##  $ WFO       : Factor w/ 542 levels ""," CI","%SD",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ WFO       : Factor w/ 542 levels ""," CI","$AC",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ STATEOFFIC: Factor w/ 250 levels "","ALABAMA, Central",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ ZONENAMES : Factor w/ 25112 levels "","                                                                                                               "| __truncated__,..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ LATITUDE  : num  3040 3042 3340 3458 3412 ...
 ##  $ LONGITUDE : num  8812 8755 8742 8626 8642 ...
 ##  $ LATITUDE_E: num  3051 0 0 0 0 ...
 ##  $ LONGITUDE_: num  8806 0 0 0 0 ...
-##  $ REMARKS   : Factor w/ 436781 levels "","\t","\t\t",..: 1 1 1 1 1 1 1 1 1 1 ...
+##  $ REMARKS   : Factor w/ 436781 levels "","-2 at Deer Park\n",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ REFNUM    : num  1 2 3 4 5 6 7 8 9 10 ...
 ```
   
@@ -111,7 +112,7 @@ has (almost) all it's values filled in, or almost all the data is missing.
   
 Fortunately, in the "missing" camp, we have only two variables `F` and  
 `COUNTYENDN`. Since these variables don't seem to be relevant to the questions  
-at hands, we won't take further actions in their regard.  
+at hands, we won't have to take further actions in their regard.  
   
 ### Data modifications
 
@@ -146,25 +147,36 @@ library(stringr)
 library(stringdist)
 ```
   
-Let's first create (...)
-<<<<<<< HEAD
+Let's first create a second database, `StormData_mod`, for three main reasons:  
+  
+1. We avoid having to rebuild the original (and heavy) dataframe with every knit.  
+2. We can keep track of changes if needed.  
+3. We can subset the original dataframe to work faster.  
+
+We will start by subsetting by date > 01.01.1996. Why? Because this is when  
+people started tracking all 48 events, not just some of them (cf [this thread](https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/38y35MMiEeiERhLphT2-QA)).  
+
+We'll keep only the variables we will later use as well.
+  
 
 ```r
 testdate <- as.POSIXlt(
                 as.character(StormData$BGN_DATE),
                 format = "%m/%d/%Y %H:%M:%S") > "1996-01-01"
 conditions <- (StormData$CROPDMG > 0 | StormData$PROPDMG > 0 |
-        StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
-StormData_mod <- subset(StormData, subset = conditions)
+                       StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
+StormData_mod <- subset(StormData, conditions)
 StormData_mod <- StormData_mod[,c("EVTYPE","INJURIES", "FATALITIES", "CROPDMG", "CROPDMGEXP",
                               "PROPDMG", "PROPDMGEXP")]
 ```
   
 After some exploration, we can notice something about `EVTYPE`. There are  
 duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times under  
-slightly different names.    
+slightly different names.  
+  
 This is a problem. Events will need to be grouped under the official  
-48 names below (found in the pdf file in code):  
+48 names below (found in the pdf file in code, from a link provided  
+on Coursera):  
   
 
 ```r
@@ -172,79 +184,173 @@ pdf_url <- paste0("https://d396qusza40orc.cloudfront.net/",
                   "repdata%2Fpeer2_doc%2Fpd01016005curr.pdf")
 my_pdf <- 
         paste0(pdf_text(pdf_url)[c(2:4)])
-my_str <- unlist(strsplit(my_pdf, "\\r\\n"))
+my_str <- unlist(strsplit(my_pdf, "(\\r)?\\n"))
 my_str <- my_str[47:128]
-my_str_short <- str_match(string = my_str, pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
+my_str_short <- 
+        str_match(string = my_str, 
+                  pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
 my_str_short <- toupper(my_str_short[!is.na(my_str_short[,3]),3])
 rm(my_pdf, my_str)
+my_str_long <- data.frame(Value = c(1:4, 
+                                    rep(5,2), 6:12,
+                                    rep(13,2), 14:16,
+                                    rep(17,2), 18:24, 
+                                    rep(25,2), 26:48), 
+                          name = unlist(strsplit(my_str_short, "[/]")))
 print(my_str_short)
 ```
 
 ```
-## character(0)
+##  [1] "ASTRONOMICAL LOW TIDE"    "AVALANCHE"               
+##  [3] "BLIZZARD"                 "COASTAL FLOOD"           
+##  [5] "COLD/WIND CHILL"          "DEBRIS FLOW"             
+##  [7] "DENSE FOG"                "DENSE SMOKE"             
+##  [9] "DROUGHT"                  "DUST DEVIL"              
+## [11] "DUST STORM"               "EXCESSIVE HEAT"          
+## [13] "EXTREME COLD/WIND CHILL"  "FLASH FLOOD"             
+## [15] "FLOOD"                    "FREEZING FOG"            
+## [17] "FROST/FREEZE"             "FUNNEL CLOUD"            
+## [19] "HAIL"                     "HEAT"                    
+## [21] "HEAVY RAIN"               "HEAVY SNOW"              
+## [23] "HIGH SURF"                "HIGH WIND"               
+## [25] "HURRICANE/TYPHOON"        "ICE STORM"               
+## [27] "LAKESHORE FLOOD"          "LAKE-EFFECT SNOW"        
+## [29] "LIGHTNING"                "MARINE HAIL"             
+## [31] "MARINE HIGH WIND"         "MARINE STRONG WIND"      
+## [33] "MARINE THUNDERSTORM WIND" "RIP CURRENT"             
+## [35] "SEICHE"                   "SLEET"                   
+## [37] "STORM TIDE"               "STRONG WIND"             
+## [39] "THUNDERSTORM WIND"        "TORNADO"                 
+## [41] "TROPICAL DEPRESSION"      "TROPICAL STORM"          
+## [43] "TSUNAMI"                  "VOLCANIC ASH"            
+## [45] "WATERSPOUT"               "WILDFIRE"                
+## [47] "WINTER STORM"             "WINTER WEATHER"
 ```
 
 After (*lots*) of trial and error, one of the main issues to match is the fact  
 that some of the terms are abbreviated, like `TSTM` and `FLD`.  
   
-<<<<<<< HEAD
-We will try to fix them before the attempt. 
+We will try to fix them before the automated attempt at matchin them. 
   
-While we're at it, there's a few strings that start with `NON` something.  
+While we're at it, there's a few strings that start with `NON` something  
+as well as all the micellaneous names people came up with.
 
-We'll try to catch them as well.  
+*NOTE:* This step has been done in a very (*very*) empiric way, if one section  
+of the work needs to be improved in the future, it's this one.
 
 
 ```r
-patterns <- c("FLD", "NON-? ?\\w*", "TSTM", "URBAN/SML STREAM", "Ice jam flood [(]minor")
-replacements <-  c("FLOOD", "", "THUNDERSTORM", "", "FLOOD")
+patterns <- c("FLD", "NON-? ?\\w*", "TSTM", "(LIGHT)? *FREEZ.*RAIN",
+              "URBAN/SML STREAM", "Ice jam flood [(]minor",
+              "((HEAVY|HWY|HVY)? *PRECIP(ITATION)?|RAIN)", ".*HYPOTHERMIA.*",
+              "TORRENTIAL RAINFALL",
+              "HYPERTHERMIA", "AND LIGHTNING$", ".*GUSTY WIND/",
+              "(HWY|HVY)", "(EXTREME|TO[R]*ENTIAL|DAMAGE|UNSEASON[A-Z]*)",
+              "UNSEASONAB.* WARM", "UNSEASONAB.*COLD",
+              "(C(OA)?ST(A)?L *FLOOD(ING)?|BEACH EROSION)", 
+              "AGRICULTURAL", "TEMPERATURE", "(HEAVY SURF|.*)?/HIGH SURF",
+              "(LIGHT|FALLING|LATE SEASON)? *SNOW(FALL|/ICE)? *(SQUALL)?",
+              ".*MICROBURST.*", "(ADVISORY|HAZARDOUS|AND [A-Z]*$)",
+              ".*HEAVY SNOW.*", "BLOWING DUST", "COASTAL FLOOD.*",
+              "FOG")
+replacements <-  c("FLOOD", "", "THUNDERSTORM", "FROST/FREEZE",
+                   "", "FLOOD",
+                   "HEAVY RAIN", "COLD",
+                   "RAIN",
+                   "HEAT", "", "",
+                   "HEAVY", "", 
+                   "HEAT", "COLD",
+                   "COASTAL FLOOD",
+                   "", "", "HIGH SURF",
+                   "HEAVY SNOW",
+                   "THUNDERSTORM WIND", "",
+                   "HEAVY SNOW", "HIGH WIND", "COASTAL FLOOD",
+                   "DENSE FOG")
 
+StormData_mod$EVTYPE_corr <- as.character(StormData_mod$EVTYPE)
 for (i in 1:length(patterns)){
-        StormData_mod$EVTYPE <- 
+        StormData_mod$EVTYPE_corr <- 
                 gsub(patterns[i], replacements[i],
-                     as.character(StormData_mod$EVTYPE), ignore.case = T)
+                     StormData_mod$EVTYPE_corr, ignore.case = T, perl = T)
 }
-StormData_mod$EVTYPE <- factor(StormData_mod$EVTYPE, levels = unique(StormData_mod$EVTYPE))
-grep("STREAM FLOOD", StormData_mod$EVTYPE)
+StormData_mod$EVTYPE_corr <- factor(StormData_mod$EVTYPE_corr, 
+                                    levels = unique(StormData_mod$EVTYPE_corr))
 ```
 
-```
-## integer(0)
-```
-
-
+We'll then attempt to match the names obtained in `StormData_mod$EVTYPE_corr`:
 
 
 ```r
 ## The matching attempt:
-matches <- amatch(toupper(StormData_mod$EVTYPE), my_str_short, method = "lv", maxDist = 16)
-df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE, 
-                             RESULT = my_str_short[matches])
-sum(is.na(df_test_amatch$RESULT))
+matches <- 
+        amatch(toupper(as.character(StormData_mod$EVTYPE_corr))
+               , my_str_long$name, 
+               method = "lcs", 
+               maxDist = 10)
+
+## Building a data frame of the gradual results, was useful for testing purposes
+## and might be useful if improvement is needed.
+df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE,
+                             corr = StormData_mod$EVTYPE_corr,
+                             RESULT = my_str_short[my_str_long$Value[matches]])
+StormData_mod$EVTYPE_corr <- factor(df_test_amatch$RESULT, 
+                                    levels = unique(df_test_amatch$RESULT))
 ```
 
-```
-## [1] 201313
-```
+
+After all this wrangling we end up with a new and "clean" variable:
+
 
 ```r
-amatch_14 <- which(is.na(df_test_amatch$RESULT))
+summary(StormData_mod$EVTYPE_corr)
 ```
 
+```
+##             WINTER STORM                  TORNADO        THUNDERSTORM WIND 
+##                     1463                    12365                   105449 
+##                HIGH WIND              FLASH FLOOD             FROST/FREEZE 
+##                     5529                    19014                      173 
+##          COLD/WIND CHILL                LIGHTNING                     HAIL 
+##                      442                    11151                    22697 
+##                    FLOOD           EXCESSIVE HEAT              RIP CURRENT 
+##                    10302                      685                      603 
+##                     HEAT               HEAVY SNOW                 WILDFIRE 
+##                      203                     1427                     1228 
+##                ICE STORM                 BLIZZARD               STORM TIDE 
+##                      632                      228                      216 
+##               DUST STORM              STRONG WIND               DUST DEVIL 
+##                      101                     3414                       84 
+##                DENSE FOG                HIGH SURF               HEAVY RAIN 
+##                      159                      193                     1110 
+##              MARINE HAIL                AVALANCHE            COASTAL FLOOD 
+##                        3                      264                      200 
+##               WATERSPOUT        HURRICANE/TYPHOON           TROPICAL STORM 
+##                       29                      208                      410 
+##                  DROUGHT                    SLEET  EXTREME COLD/WIND CHILL 
+##                      263                      215                        1 
+##             FREEZING FOG           WINTER WEATHER             FUNNEL CLOUD 
+##                       13                      547                        9 
+##                   SEICHE             VOLCANIC ASH MARINE THUNDERSTORM WIND 
+##                        9                        2                      142 
+##    ASTRONOMICAL LOW TIDE      TROPICAL DEPRESSION         MARINE HIGH WIND 
+##                       10                       35                       19 
+##                  TSUNAMI          LAKESHORE FLOOD       MARINE STRONG WIND 
+##                       14                        5                       46 
+##              DENSE SMOKE 
+##                        1
+```
 
-This is also a problem because it appears pretty high in the list of harmful  
-and costly events. I will now modify them to gather all these events under a  
-new name, `TSTM WIND COMBINED`.
 
 
 ## Data Analysis
+## Results
   
-Now we have the tools to create a new dataframe, with data grouped by `EVTYPE`
-(event type) and we'll take a look at the highest means of fatalities and injuries.
+Now we have all the tools to create a new dataframe, with data grouped by `EVTYPE`  
+and we'll take a look at the highest means of fatalities and injuries combined.
 
 ```r
 health_by_event <- StormData_mod %>%
-        group_by(EVTYPE) %>%
+        group_by(EVTYPE_corr) %>%
         summarize(mean.fatalities = mean(FATALITIES, na.rm = T),
                   mean.injuries = mean(INJURIES, na.rm = T),
                   total.means = mean.fatalities + mean.injuries,
@@ -255,18 +361,18 @@ head(health_by_event, 10)
 
 ```
 ## # A tibble: 10 x 5
-##    EVTYPE             mean.fatalities mean.injuries total.means occurences
-##    <fct>                        <dbl>         <dbl>       <dbl>      <int>
-##  1 Heat Wave                   0              70           70            1
-##  2 WINTER WEATHER MIX          0              34           34            2
-##  3 WINTRY MIX                  0.333          25.7         26            3
-##  4 BLACK ICE                   1              24           25            1
-##  5 HURRICANE/TYPHOON           0.889          17.7         18.6         72
-##  6 GLAZE                       0.0714         15.1         15.2         14
-##  7 COLD AND SNOW              14               0           14            1
-##  8 SNOW SQUALL                 0.667          11.7         12.3          3
-##  9 EXCESSIVE HEAT              2.62            9.33        12.0        685
-## 10 TSUNAMI                     2.36            9.21        11.6         14
+##    EVTYPE_corr       mean.fatalities mean.injuries total.means occurences
+##    <fct>                       <dbl>         <dbl>       <dbl>      <int>
+##  1 EXCESSIVE HEAT              2.62          9.33        12.0         685
+##  2 TSUNAMI                     2.36          9.21        11.6          14
+##  3 HEAT                        1.18          6.38         7.57        203
+##  4 HURRICANE/TYPHOON           0.601         6.38         6.99        208
+##  5 DENSE FOG                   0.434         5.38         5.81        159
+##  6 DUST STORM                  0.149         3.74         3.89        101
+##  7 BLIZZARD                    0.307         1.69         2.00        228
+##  8 HIGH SURF                   0.741         1.07         1.81        193
+##  9 TORNADO                     0.122         1.67         1.79      12365
+## 10 RIP CURRENT                 0.899         0.834        1.73        603
 ```
   
 In our question we want to know how harmful an event is to population.  
@@ -284,21 +390,21 @@ head(health_by_event[order(health_by_event$occurences, decreasing = T),], 10)
 
 ```
 ## # A tibble: 10 x 5
-##    EVTYPE            mean.fatalities mean.injuries total.means occurences
+##    EVTYPE_corr       mean.fatalities mean.injuries total.means occurences
 ##    <fct>                       <dbl>         <dbl>       <dbl>      <int>
-##  1 THUNDERSTORM WIND        0.00354         0.0480      0.0515     104872
-##  2 HAIL                     0.000309        0.0314      0.0317      22679
-##  3 FLASH FLOOD              0.0467          0.0881      0.135       19011
+##  1 THUNDERSTORM WIND        0.00362         0.0489      0.0525     105449
+##  2 HAIL                     0.000352        0.0337      0.0340      22697
+##  3 FLASH FLOOD              0.0466          0.0880      0.135       19014
 ##  4 TORNADO                  0.122           1.67        1.79        12365
 ##  5 LIGHTNING                0.0583          0.371       0.430       11151
-##  6 FLOOD                    0.0435          0.710       0.754        9514
-##  7 HIGH WIND                0.0435          0.200       0.244        5402
-##  8 STRONG WIND              0.0306          0.0826      0.113        3367
-##  9 WINTER STORM             0.131           0.886       1.02         1459
-## 10 HEAVY RAIN               0.0898          0.220       0.309        1047
+##  6 FLOOD                    0.0431          0.664       0.707       10302
+##  7 HIGH WIND                0.0468          0.215       0.262        5529
+##  8 STRONG WIND              0.0322          0.0876      0.120        3414
+##  9 WINTER STORM             0.131           0.936       1.07         1463
+## 10 HEAVY SNOW               0.0939          0.529       0.623        1427
 ```
 This is interesting. We can see that some newcomers like `HAIL` or  
-`TSTM WIND COMBINED` occur lots of times and they **are** harmful, not top  
+`THUNDERSTORM WIND` occur lots of times and they **are** harmful, not top  
 10 harmful but still.  
   
 Let's try creating an `index` variable. It will be the product of `occurences`  
@@ -320,53 +426,57 @@ head(health_by_event[order(desc(health_by_event$index)),], 10)
 ```
 
 ```
-##                EVTYPE mean.fatalities mean.injuries total.means occurences
-## 42            TORNADO     0.122199757    1.67141124  1.79361100      12365
-## 9      EXCESSIVE HEAT     2.623357664    9.32992701 11.95328467        685
-## 89              FLOOD     0.043514820    0.71032163  0.75383645       9514
-## 129 THUNDERSTORM WIND     0.003537646    0.04795370  0.05149134     104872
-## 104         LIGHTNING     0.058290736    0.37126715  0.42955789      11151
-## 121       FLASH FLOOD     0.046657198    0.08805428  0.13471148      19011
-## 60       WINTER STORM     0.130911583    0.88553804  1.01644962       1459
-## 11               HEAT     1.445121951    7.45121951  8.89634146        164
-## 5   HURRICANE/TYPHOON     0.888888889   17.70833333 18.59722222         72
-## 112         HIGH WIND     0.043502407    0.20048130  0.24398371       5402
-##        index
-## 42  4.345922
-## 9   3.913178
-## 89  3.855640
-## 129 3.732394
-## 104 3.680336
-## 121 3.408410
-## 60  3.171141
-## 11  3.164055
-## 5   3.126781
-## 112 3.119915
+##          EVTYPE_corr mean.fatalities mean.injuries total.means occurences
+## 9            TORNADO     0.122199757    1.67141124  1.79361100      12365
+## 1     EXCESSIVE HEAT     2.623357664    9.32992701 11.95328467        685
+## 22             FLOOD     0.043098427    0.66375461  0.70685304      10302
+## 39 THUNDERSTORM WIND     0.003622604    0.04887671  0.05249931     105449
+## 26         LIGHTNING     0.058290736    0.37126715  0.42955789      11151
+## 32       FLASH FLOOD     0.046649837    0.08804039  0.13469023      19014
+## 16      WINTER STORM     0.131237184    0.93574846  1.06698565       1463
+## 13          WILDFIRE     0.070846906    1.18566775  1.25651466       1228
+## 3               HEAT     1.182266010    6.38423645  7.56650246        203
+## 4  HURRICANE/TYPHOON     0.600961538    6.38461538  6.98557692        208
+##       index
+## 9  4.345922
+## 1  3.913178
+## 22 3.862251
+## 39 3.743196
+## 26 3.680336
+## 32 3.408410
+## 16 3.193403
+## 13 3.188366
+## 3  3.186391
+## 4  3.162266
 ```
 
+Maybe a figure would be prettier:
 
 
 ```r
 plotpop <- head(health_by_event[order(desc(health_by_event$index)),], 20)
-plotpop$EVTYPE <- factor(plotpop$EVTYPE, levels = as.character(plotpop$EVTYPE))
+plotpop$EVTYPE_corr <- factor(plotpop$EVTYPE_corr, 
+                              levels = as.character(plotpop$EVTYPE_corr))
 
 warncolors <- colorRampPalette(c("red", "gold3"))
 g1 <- ggplot(plotpop[c(1:6)],
-             aes(x=EVTYPE, y = index, fill = EVTYPE))
+             aes(x=EVTYPE_corr, y = index, fill = EVTYPE_corr))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
         xlab(element_blank())+
-        theme(legend.position = "none")+
         scale_fill_manual(values = warncolors(20))+
+        theme_bw()+
+        theme(legend.position = "none")+
         theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Health issues",
                             " index (HII).\n HII = mean of injuries + mean ",
-                            " of fatalities * total occurences\nData for ",
+                            " of fatalities * total occurences (log10)\nData for ",
                             "years 1996 to 2011"))
 ```
 
-![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
-  
+![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
 Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
 holding numbers for *property damage* and *crop damage*, respectively, they  
 first have to be ajusted with their exponent `EXP` counteparts:
@@ -384,22 +494,6 @@ for (i in 1:8){
         StormData_mod$PROPDMGEXP <- 
                 gsub(v_pattern[i], v_repl[i], StormData_mod$PROPDMGEXP)
 } 
-sum(!is.numeric(as.numeric(StormData_mod$CROPDMGEXP)))
-```
-
-```
-## [1] 0
-```
-
-```r
-sum(!is.numeric(as.numeric(StormData_mod$PROPDMGEXP)))
-```
-
-```
-## [1] 0
-```
-
-```r
 StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
 StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
 ```
@@ -410,7 +504,7 @@ StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
 
 ```r
 cost_by_event <- StormData_mod %>%
-        group_by(EVTYPE) %>%
+        group_by(EVTYPE_corr) %>%
         summarise(mean.prop = mean(PROPDMG * PROPDMGEXP, na.rm = T),
                   mean.crop = mean(CROPDMG * CROPDMGEXP, na.rm = T),
                   mean.combi = mean.crop + mean.prop,
@@ -422,14 +516,14 @@ head(cost_by_event[order(desc(cost_by_event$mean.combi)),])
 
 ```
 ## # A tibble: 6 x 6
-##   EVTYPE             mean.prop  mean.crop mean.combi occurences index
-##   <fct>                  <dbl>      <dbl>      <dbl>      <int> <dbl>
-## 1 HURRICANE/TYPHOON 962581111. 36220456.  998801567.         72 10.9 
-## 2 STORM SURGE       255583053.       29.6 255583083.        169 10.6 
-## 3 HURRICANE          93752532. 21757222.  115509754.        126 10.2 
-## 4 STORM SURGE/TIDE   98748681.    18085.   98766766.         47  9.67
-## 5 TYPHOON            66692222.    91667.   66783889.          9  8.78
-## 6 DROUGHT             4054655. 51812271.   55866926.        258 10.2
+##   EVTYPE_corr        mean.prop mean.crop mean.combi occurences index
+##   <fct>                  <dbl>     <dbl>      <dbl>      <int> <dbl>
+## 1 HURRICANE/TYPHOON 392879274. 25721672. 418600946.        208 10.9 
+## 2 STORM TIDE        221457056.     3958. 221461014.        216 10.7 
+## 3 DROUGHT             3977578. 50827247.  54804825.        263 10.2 
+## 4 TROPICAL STORM     18640184.  1652954.  20293138.        410  9.92
+## 5 FLOOD              13990447.   486620.  14477067.      10302 11.2 
+## 6 TSUNAMI            10290143.     1429.  10291571.         14  8.16
 ```
 If we arrange the data by `mean.combi` (as seen above), we can see that the  
 most costly events have a very low occurence. Since the goal of this analysis  
@@ -443,58 +537,77 @@ head(cost_by_event, 20)
 
 ```
 ## # A tibble: 20 x 6
-##    EVTYPE             mean.prop  mean.crop mean.combi occurences index
-##    <fct>                  <dbl>      <dbl>      <dbl>      <int> <dbl>
-##  1 FLOOD              15129791.   522890.   15652682.       9514 11.2 
-##  2 HURRICANE/TYPHOON 962581111. 36220456.  998801567.         72 10.9 
-##  3 STORM SURGE       255583053.       29.6 255583083.        169 10.6 
-##  4 TORNADO             1990854.    22922.    2013775.      12365 10.4 
-##  5 HAIL                 643553.   109177.     752730.      22679 10.2 
-##  6 FLASH FLOOD          800705.    70217.     870922.      19011 10.2 
-##  7 HURRICANE          93752532. 21757222.  115509754.        126 10.2 
-##  8 DROUGHT             4054655. 51812271.   55866926.        258 10.2 
-##  9 THUNDERSTORM WIND     74955.     9080.      84035.     104872  9.95
-## 10 TROPICAL STORM     18640184.  1652954.   20293138.        410  9.92
-## 11 HIGH WIND            971466.   117283.    1088749.       5402  9.77
-## 12 WILDFIRE            5618261.   348846.    5967107.        847  9.70
-## 13 STORM SURGE/TIDE   98748681.    18085.   98766766.         47  9.67
-## 14 ICE STORM           5772185.    24818.    5797003.        631  9.56
-## 15 WILD/FOREST FIRE    7878694.   280269.    8158963.        381  9.49
-## 16 WINTER STORM        1050537.     8186.    1058723.       1459  9.19
-## 17 HEAVY RAIN           558610.   695482.    1254092.       1047  9.12
-## 18 EXTREME COLD         120490.  7859591.    7980082.        164  9.12
-## 19 FROST/FREEZE          81724.  9431776.    9513500         116  9.04
-## 20 LIGHTNING             66638.      619.      67256.      11151  8.88
+##    EVTYPE_corr        mean.prop mean.crop mean.combi occurences index
+##    <fct>                  <dbl>     <dbl>      <dbl>      <int> <dbl>
+##  1 FLOOD              13990447.   486620.  14477067.      10302 11.2 
+##  2 HURRICANE/TYPHOON 392879274. 25721672. 418600946.        208 10.9 
+##  3 STORM TIDE        221457056.     3958. 221461014.        216 10.7 
+##  4 TORNADO             1990854.    22922.   2013775.      12365 10.4 
+##  5 HAIL                 643047.   110007.    753054.      22697 10.2 
+##  6 FLASH FLOOD          800582.    70206.    870788.      19014 10.2 
+##  7 DROUGHT             3977578. 50827247.  54804825.        263 10.2 
+##  8 THUNDERSTORM WIND     75063.     9644.     84707.     105449  9.95
+##  9 TROPICAL STORM     18640184.  1652954.  20293138.        410  9.92
+## 10 WILDFIRE            6319584.   327569.   6647154.       1228  9.91
+## 11 HIGH WIND            949976.   114681.   1064657.       5529  9.77
+## 12 ICE STORM           5763052.    24778.   5787830.        632  9.56
+## 13 WINTER STORM        1047673.     8164.   1055837.       1463  9.19
+## 14 COLD/WIND CHILL       76427.  3069605.   3146032.        442  9.14
+## 15 FROST/FREEZE         114289.  7911913.   8026202.        173  9.14
+## 16 HEAVY RAIN           529143.   665243.   1194386.       1110  9.12
+## 17 HEAVY SNOW           477920.    49840.    527760.       1427  8.88
+## 18 LIGHTNING             66638.      619.     67256.      11151  8.88
+## 19 BLIZZARD            2305522.    30965.   2336487.        228  8.73
+## 20 EXCESSIVE HEAT        11275.   718835.    730111.        685  8.70
 ```
 
 
 ```r
 plotpop2 <- head(cost_by_event[order(desc(cost_by_event$index)),], 20)
-plotpop2$EVTYPE <- factor(plotpop2$EVTYPE, levels = as.character(plotpop2$EVTYPE))
+plotpop2$EVTYPE_corr <- factor(plotpop2$EVTYPE_corr, 
+                               levels = as.character(plotpop2$EVTYPE_corr))
 
 prettycolors2 <- colorRampPalette(c("darkgreen", "springgreen"))
 g2 <- ggplot(plotpop2[c(1:6)],
-             aes(x=EVTYPE, y = index, fill = EVTYPE))
+             aes(x=EVTYPE_corr, y = index, fill = EVTYPE_corr))
 g2 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Cost Index")+
         xlab(element_blank())+
+        theme_bw()+
         theme(legend.position = "none")+
         scale_fill_manual(values = prettycolors2(20))+
-        theme(axis.text.x = element_text(angle = 65, hjust = 0.95)) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Cost",
                             " Index (CI).\n CI = mean of propriety damage +",
-                            " mean of crop damage ",
-                            "* total occurences\nData for ",
+                            " mean of crop damage \n",
+                            "      times total occurences (log10)\nData for ",
                             "years 1996 to 2011"))
 ```
 
-![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](Storm_Data_Main_Report_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
   
 I will rest my case here. Further steps should be taken to be able to consider  
 this work for anything else than a simple assessment in the JH Datascience  
-course:  
+Course on Coursera:  
   
-* In depth cleaning of the `EVTYPE` variable to ensure the best merge of duplicates.
+* In depth cleaning of the `EVTYPE_corr` variable to ensure the best merge of duplicates.  
+Probing aroud with something like :  
+
+```r
+head(df_test_amatch[df_test_amatch$RESULT == "RIP CURRENT",])
+```
+
+```
+##            EVTYPE         corr      RESULT
+## 406  RIP CURRENTS RIP CURRENTS RIP CURRENT
+## 480  RIP CURRENTS RIP CURRENTS RIP CURRENT
+## 816  RIP CURRENTS RIP CURRENTS RIP CURRENT
+## 1166 RIP CURRENTS RIP CURRENTS RIP CURRENT
+## 1187 RIP CURRENTS RIP CURRENTS RIP CURRENT
+## 1250 RIP CURRENTS RIP CURRENTS RIP CURRENT
+```
+... For all 48 events Would be great, manually correcting the last typos.
+
 * Regional repartition to further affinate the specific risk potential.
 * Ajusting the index, especially for health, to reflect the true impact on  
 a community

@@ -1,11 +1,12 @@
 ---
-title: "Storms"
-subtitle: "A NOAA database analysis for Health and Economic consequences"
+title: "Top 20 most Harmful/Costly meteorological events in the US, years 1996-2011"
 author: "Mathieu C."
 date: "2 octobre 2019"
-output: 
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
+subtitle: A NOAA database analysis for Health and Economic consequences
 ---
 
 ## Synopsis
@@ -51,12 +52,12 @@ has (almost) all it's values filled in, or almost all the data is missing.
   
 Fortunately, in the "missing" camp, we have only two variables `F` and  
 `COUNTYENDN`. Since these variables don't seem to be relevant to the questions  
-at hands, we won't take further actions in their regard.  
+at hands, we won't have to take further actions in their regard.  
   
 ### Data modifications
 
 This will require some packages, let's load them:
-```{r}
+```{r warning=FALSE}
 library(dplyr)
 library(ggplot2)
 library(reshape2)
@@ -65,15 +66,24 @@ library(stringr)
 library(stringdist)
 ```
   
-Let's first create (...)
-<<<<<<< HEAD
+Let's first create a second database, `StormData_mod`, for three main reasons:  
+  
+1. We avoid having to rebuild the original (and heavy) dataframe with every knit.  
+2. We can keep track of changes if needed.  
+3. We can subset the original dataframe to work faster.  
+
+We will start by subsetting by date > 01.01.1996. Why? Because this is when  
+people started tracking all 48 events, not just some of them (cf [this thread](https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/38y35MMiEeiERhLphT2-QA)).  
+
+We'll keep only the variables we will later use as well.
+  
 ```{r cache=TRUE}
 testdate <- as.POSIXlt(
                 as.character(StormData$BGN_DATE),
                 format = "%m/%d/%Y %H:%M:%S") > "1996-01-01"
 conditions <- (StormData$CROPDMG > 0 | StormData$PROPDMG > 0 |
-        StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
-StormData_mod <- subset(StormData, subset = conditions)
+                       StormData$INJURIES > 0 | StormData$FATALITIES > 0) & testdate 
+StormData_mod <- subset(StormData, conditions)
 StormData_mod <- StormData_mod[,c("EVTYPE","INJURIES", "FATALITIES", "CROPDMG", "CROPDMGEXP",
                               "PROPDMG", "PROPDMGEXP")]
 
@@ -81,9 +91,11 @@ StormData_mod <- StormData_mod[,c("EVTYPE","INJURIES", "FATALITIES", "CROPDMG", 
   
 After some exploration, we can notice something about `EVTYPE`. There are  
 duplicates. For example: `THUNDERSTORM WIND` appears a whole lot of times under  
-slightly different names.    
+slightly different names.  
+  
 This is a problem. Events will need to be grouped under the official  
-48 names below (found in the pdf file in code):  
+48 names below (found in the pdf file in code, from a link provided  
+on Coursera):  
   
 ```{r}
 pdf_url <- paste0("https://d396qusza40orc.cloudfront.net/",
@@ -91,12 +103,18 @@ pdf_url <- paste0("https://d396qusza40orc.cloudfront.net/",
 my_pdf <- 
         paste0(pdf_text(pdf_url)[c(2:4)])
 my_str <- unlist(strsplit(my_pdf, "(\\r)?\\n"))
-my_str
 my_str <- my_str[47:128]
-my_str_short <- str_match(string = my_str, pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
+my_str_short <- 
+        str_match(string = my_str, 
+                  pattern = "7.([0-9]+)[.]? +(.*?) *(?:[(][A-Z][)])? *[.]{3,}")
 my_str_short <- toupper(my_str_short[!is.na(my_str_short[,3]),3])
 rm(my_pdf, my_str)
-my_str_long <- unlist(strsplit(my_str_short, "[/]"))
+my_str_long <- data.frame(Value = c(1:4, 
+                                    rep(5,2), 6:12,
+                                    rep(13,2), 14:16,
+                                    rep(17,2), 18:24, 
+                                    rep(25,2), 26:48), 
+                          name = unlist(strsplit(my_str_short, "[/]")))
 print(my_str_short)
 
 ```
@@ -104,56 +122,88 @@ print(my_str_short)
 After (*lots*) of trial and error, one of the main issues to match is the fact  
 that some of the terms are abbreviated, like `TSTM` and `FLD`.  
   
-We will try to fix them before the attempt. 
+We will try to fix them before the automated attempt at matchin them. 
   
-While we're at it, there's a few strings that start with `NON` something.  
+While we're at it, there's a few strings that start with `NON` something  
+as well as all the micellaneous names people came up with.
 
-We'll try to catch them as well.  
+*NOTE:* This step has been done in a very (*very*) empiric way, if one section  
+of the work needs to be improved in the future, it's this one.
 
-```{r}
-patterns <- c("FLD", "NON-? ?\\w*", "TSTM",
+```{r cache=TRUE}
+patterns <- c("FLD", "NON-? ?\\w*", "TSTM", "(LIGHT)? *FREEZ.*RAIN",
               "URBAN/SML STREAM", "Ice jam flood [(]minor",
-              "MIXED PRECIPITATION", "HYPOTHERMIA", "TORRENTIAL RAINFALL",
-              "HYPERTHERMIA", "AND LIGHTNING$", "HWY", "EXTREME")
-replacements <-  c("FLOOD", "", "THUNDERSTORM", "", "FLOOD", "RAIN",
-                   "COLD", "RAIN", "HEAT", "", "HEAVY", "")
+              "((HEAVY|HWY|HVY)? *PRECIP(ITATION)?|RAIN)", ".*HYPOTHERMIA.*",
+              "TORRENTIAL RAINFALL",
+              "HYPERTHERMIA", "AND LIGHTNING$", ".*GUSTY WIND/",
+              "(HWY|HVY)", "(EXTREME|TO[R]*ENTIAL|DAMAGE|UNSEASON[A-Z]*)",
+              "UNSEASONAB.* WARM", "UNSEASONAB.*COLD",
+              "(C(OA)?ST(A)?L *FLOOD(ING)?|BEACH EROSION)", 
+              "AGRICULTURAL", "TEMPERATURE", "(HEAVY SURF|.*)?/HIGH SURF",
+              "(LIGHT|FALLING|LATE SEASON)? *SNOW(FALL|/ICE)? *(SQUALL)?",
+              ".*MICROBURST.*", "(ADVISORY|HAZARDOUS|AND [A-Z]*$)",
+              ".*HEAVY SNOW.*", "BLOWING DUST", "COASTAL FLOOD.*",
+              "FOG")
+replacements <-  c("FLOOD", "", "THUNDERSTORM", "FROST/FREEZE",
+                   "", "FLOOD",
+                   "HEAVY RAIN", "COLD",
+                   "RAIN",
+                   "HEAT", "", "",
+                   "HEAVY", "", 
+                   "HEAT", "COLD",
+                   "COASTAL FLOOD",
+                   "", "", "HIGH SURF",
+                   "HEAVY SNOW",
+                   "THUNDERSTORM WIND", "",
+                   "HEAVY SNOW", "HIGH WIND", "COASTAL FLOOD",
+                   "DENSE FOG")
 
+StormData_mod$EVTYPE_corr <- as.character(StormData_mod$EVTYPE)
 for (i in 1:length(patterns)){
-        StormData_mod$EVTYPE <- 
+        StormData_mod$EVTYPE_corr <- 
                 gsub(patterns[i], replacements[i],
-                     as.character(StormData_mod$EVTYPE), ignore.case = T)
+                     StormData_mod$EVTYPE_corr, ignore.case = T, perl = T)
 }
-StormData_mod$EVTYPE <- factor(StormData_mod$EVTYPE, levels = unique(StormData_mod$EVTYPE))
+StormData_mod$EVTYPE_corr <- factor(StormData_mod$EVTYPE_corr, 
+                                    levels = unique(StormData_mod$EVTYPE_corr))
 ```
 
-
+We'll then attempt to match the names obtained in `StormData_mod$EVTYPE_corr`:
 
 ```{r}
 ## The matching attempt:
-matches1 <- amatch(toupper(as.character(StormData_mod$EVTYPE)), my_str_long, method = "lcs", maxDist = 8)
-matches2 <- amatch(toupper(my_str_long[matches1]), my_str_short, method = "lcs", maxDist = 8)
+matches <- 
+        amatch(toupper(as.character(StormData_mod$EVTYPE_corr))
+               , my_str_long$name, 
+               method = "lcs", 
+               maxDist = 10)
 
-df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE, 
-                             RESULT = my_str_long[matches1],
-                             RESULT2 = my_str_short[matches2])
-sum(is.na(df_test_amatch$RESULT2))
-amatch_7 <- which(is.na(df_test_amatch$RESULT))
-df_test_amatch[amatch_7,]
+## Building a data frame of the gradual results, was useful for testing purposes
+## and might be useful if improvement is needed.
+df_test_amatch <- data.frame(EVTYPE = StormData_mod$EVTYPE,
+                             corr = StormData_mod$EVTYPE_corr,
+                             RESULT = my_str_short[my_str_long$Value[matches]])
+StormData_mod$EVTYPE_corr <- factor(df_test_amatch$RESULT, 
+                                    levels = unique(df_test_amatch$RESULT))
 ```
 
 
-This is also a problem because it appears pretty high in the list of harmful  
-and costly events. I will now modify them to gather all these events under a  
-new name, `TSTM WIND COMBINED`.
+After all this wrangling we end up with a new and "clean" variable:
+
+```{r}
+summary(StormData_mod$EVTYPE_corr)
+```
+
 
 
 ## Data Analysis
+## Results
   
-Now we have the tools to create a new dataframe, with data grouped by `EVTYPE`
-(event type) and we'll take a look at the highest means of fatalities and injuries.
+Now we have all the tools to create a new dataframe, with data grouped by `EVTYPE`  
+and we'll take a look at the highest means of fatalities and injuries combined.
 ```{r}
 health_by_event <- StormData_mod %>%
-        group_by(EVTYPE) %>%
+        group_by(EVTYPE_corr) %>%
         summarize(mean.fatalities = mean(FATALITIES, na.rm = T),
                   mean.injuries = mean(INJURIES, na.rm = T),
                   total.means = mean.fatalities + mean.injuries,
@@ -174,7 +224,7 @@ Let's see what the top most frequent events a.k.a. `occurences` looks like:
 head(health_by_event[order(health_by_event$occurences, decreasing = T),], 10)
 ```
 This is interesting. We can see that some newcomers like `HAIL` or  
-`TSTM WIND COMBINED` occur lots of times and they **are** harmful, not top  
+`THUNDERSTORM WIND` occur lots of times and they **are** harmful, not top  
 10 harmful but still.  
   
 Let's try creating an `index` variable. It will be the product of `occurences`  
@@ -194,27 +244,31 @@ health_by_event <- transform(health_by_event,
 head(health_by_event[order(desc(health_by_event$index)),], 10)
 ```
 
+Maybe a figure would be prettier:
 
 ```{r}
 plotpop <- head(health_by_event[order(desc(health_by_event$index)),], 20)
-plotpop$EVTYPE <- factor(plotpop$EVTYPE, levels = as.character(plotpop$EVTYPE))
+plotpop$EVTYPE_corr <- factor(plotpop$EVTYPE_corr, 
+                              levels = as.character(plotpop$EVTYPE_corr))
 
 warncolors <- colorRampPalette(c("red", "gold3"))
 g1 <- ggplot(plotpop[c(1:6)],
-             aes(x=EVTYPE, y = index, fill = EVTYPE))
+             aes(x=EVTYPE_corr, y = index, fill = EVTYPE_corr))
 g1 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Health issues index")+
         xlab(element_blank())+
-        theme(legend.position = "none")+
         scale_fill_manual(values = warncolors(20))+
+        theme_bw()+
+        theme(legend.position = "none")+
         theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Health issues",
                             " index (HII).\n HII = mean of injuries + mean ",
-                            " of fatalities * total occurences\nData for ",
+                            " of fatalities * total occurences (log10)\nData for ",
                             "years 1996 to 2011"))
         
 ```
-  
+
+
 Let's do the same with cost, using two new variables, `PROPDMG` and `CROPDMG`,  
 holding numbers for *property damage* and *crop damage*, respectively, they  
 first have to be ajusted with their exponent `EXP` counteparts:
@@ -231,9 +285,6 @@ for (i in 1:8){
         StormData_mod$PROPDMGEXP <- 
                 gsub(v_pattern[i], v_repl[i], StormData_mod$PROPDMGEXP)
 } 
-sum(!is.numeric(as.numeric(StormData_mod$CROPDMGEXP)))
-sum(!is.numeric(as.numeric(StormData_mod$PROPDMGEXP)))
-
 StormData_mod$CROPDMGEXP <- as.numeric(StormData_mod$CROPDMGEXP)
 StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
 ```
@@ -243,7 +294,7 @@ StormData_mod$PROPDMGEXP <- as.numeric(StormData_mod$PROPDMGEXP)
 
 ```{r}
 cost_by_event <- StormData_mod %>%
-        group_by(EVTYPE) %>%
+        group_by(EVTYPE_corr) %>%
         summarise(mean.prop = mean(PROPDMG * PROPDMGEXP, na.rm = T),
                   mean.crop = mean(CROPDMG * CROPDMGEXP, na.rm = T),
                   mean.combi = mean.crop + mean.prop,
@@ -263,30 +314,38 @@ head(cost_by_event, 20)
 
 ```{r}
 plotpop2 <- head(cost_by_event[order(desc(cost_by_event$index)),], 20)
-plotpop2$EVTYPE <- factor(plotpop2$EVTYPE, levels = as.character(plotpop2$EVTYPE))
+plotpop2$EVTYPE_corr <- factor(plotpop2$EVTYPE_corr, 
+                               levels = as.character(plotpop2$EVTYPE_corr))
 
 prettycolors2 <- colorRampPalette(c("darkgreen", "springgreen"))
 g2 <- ggplot(plotpop2[c(1:6)],
-             aes(x=EVTYPE, y = index, fill = EVTYPE))
+             aes(x=EVTYPE_corr, y = index, fill = EVTYPE_corr))
 g2 + geom_bar(stat = "identity", position = "dodge") +
         ylab("Cost Index")+
         xlab(element_blank())+
+        theme_bw()+
         theme(legend.position = "none")+
         scale_fill_manual(values = prettycolors2(20))+
-        theme(axis.text.x = element_text(angle = 65, hjust = 0.95)) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 0.95)) +
         labs(title = paste0("Top 20 events in decreasing order of Cost",
                             " Index (CI).\n CI = mean of propriety damage +",
-                            " mean of crop damage ",
-                            "* total occurences\nData for ",
+                            " mean of crop damage \n",
+                            "      times total occurences (log10)\nData for ",
                             "years 1996 to 2011"))
         
 ```
   
 I will rest my case here. Further steps should be taken to be able to consider  
 this work for anything else than a simple assessment in the JH Datascience  
-course:  
+Course on Coursera:  
   
-* In depth cleaning of the `EVTYPE` variable to ensure the best merge of duplicates.
+* In depth cleaning of the `EVTYPE_corr` variable to ensure the best merge of duplicates.  
+Probing aroud with something like :  
+```{r}
+head(df_test_amatch[df_test_amatch$RESULT == "RIP CURRENT",])
+```
+... For all 48 events Would be great, manually correcting the last typos.
+
 * Regional repartition to further affinate the specific risk potential.
 * Ajusting the index, especially for health, to reflect the true impact on  
 a community
